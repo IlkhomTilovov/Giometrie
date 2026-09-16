@@ -246,7 +246,11 @@ export default function Catalog() {
     ogTitle: seoTitle,
     ogDescription: seoDescription,
     keywords: selectedCategory?.meta_keywords || undefined,
-    canonical: currentPage > 1 ? '/catalog' : undefined,
+    // Match the sitemap's /catalog?category=<slug> URLs exactly (instead of the
+    // useSEO fallback, which derives canonical from window.location.pathname and
+    // silently drops the ?category= query string). Pagination isn't a distinct
+    // indexable URL, so every page of a category canonicalizes to its first page.
+    canonical: selectedCategory ? `/catalog?category=${selectedCategory.slug}` : '/catalog',
   });
 
   useEffect(() => {

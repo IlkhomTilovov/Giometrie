@@ -16,6 +16,7 @@
     "seed:furniture-fittings": "tsx prisma/seed-furniture-fittings.ts",
     "seed:oshxona-furniture": "tsx prisma/seed-oshxona-furniture.ts",
     "seed:more-products": "tsx prisma/seed-more-products.ts",
+    "seed:material-sections": "tsx prisma/seed-material-sections.ts",
     "seed:attributes": "tsx prisma/seed-attributes.ts",
     "seed:furniture-detail-demo": "tsx prisma/seed-furniture-detail-demo.ts"
   },

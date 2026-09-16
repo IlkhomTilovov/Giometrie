@@ -287,23 +287,27 @@ export function Header() {
                       <div className="flex flex-col">
                         {sections.map((section) => {
                           const hasCats = categories.some((c) => !c.parent_id && c.section_id === section.id);
+                          if (!hasCats) {
+                            return (
+                              <Link
+                                key={section.id}
+                                to={`/catalog?section=${section.slug}`}
+                                onClick={() => { setIsOpen(false); setMobileCatalogOpen(false); }}
+                                className="w-full flex items-center justify-between px-3 py-2.5 text-[13.5px] font-medium text-foreground/90 hover:text-primary hover:bg-muted/60 rounded-lg transition-colors text-left"
+                              >
+                                <span>{language === 'ru' ? section.name_ru : section.name_uz}</span>
+                              </Link>
+                            );
+                          }
                           return (
                             <button
                               key={section.id}
                               type="button"
-                              onClick={() => {
-                                if (hasCats) {
-                                  setMobileSectionId(section.id);
-                                } else {
-                                  setIsOpen(false);
-                                  setMobileCatalogOpen(false);
-                                  window.location.href = `/catalog?section=${section.slug}`;
-                                }
-                              }}
+                              onClick={() => setMobileSectionId(section.id)}
                               className="w-full flex items-center justify-between px-3 py-2.5 text-[13.5px] font-medium text-foreground/90 hover:text-primary hover:bg-muted/60 rounded-lg transition-colors text-left"
                             >
                               <span>{language === 'ru' ? section.name_ru : section.name_uz}</span>
-                              {hasCats && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
                             </button>
                           );
                         })}

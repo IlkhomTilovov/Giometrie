@@ -76,7 +76,8 @@ export function useSEO({
     // Canonical URL - use primary domain from settings
     let canonicalLink = document.querySelector('link[rel="canonical"]');
     const baseUrl = getPrimaryDomain();
-    const canonicalUrl = canonical || (baseUrl + window.location.pathname);
+    const canonicalPath = canonical || window.location.pathname;
+    const canonicalUrl = canonicalPath.startsWith('http') ? canonicalPath : baseUrl + canonicalPath;
     
     if (!canonicalLink) {
       canonicalLink = document.createElement('link');
