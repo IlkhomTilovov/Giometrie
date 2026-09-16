@@ -201,6 +201,8 @@ export default function ProductDetails() {
   const materials = (language === 'ru' && (product as any).materials_ru?.length ? (product as any).materials_ru : product.materials) || [];
   const sizes = (language === 'ru' && (product as any).sizes_ru?.length ? (product as any).sizes_ru : product.sizes) || [];
   const colors = (language === 'ru' && (product as any).colors_ru?.length ? (product as any).colors_ru : product.colors) || [];
+  const hasDiscount = !!(product.original_price && product.original_price > (product.price || 0));
+  const discountPct = hasDiscount ? Math.round((1 - (product.price || 0) / (product.original_price as number)) * 100) : 0;
   const price = product.price || 0;
 
   // Get category name
@@ -241,22 +243,6 @@ export default function ProductDetails() {
               )}
             </div>
 
-            {/* Furniture / fittings — its own separate card below the image */}
-            {Array.isArray(product.furniture) && product.furniture.length > 0 && (
-              <div className="mt-6 rounded-2xl border overflow-hidden bg-card">
-                <div className="px-4 pt-4 pb-2">
-                  <h4 className="font-medium">{language === 'uz' ? 'Furnituralar' : 'Фурнитура'}</h4>
-                  <p className="text-xs text-muted-foreground">
-                    {language === 'uz' ? 'Ushbu mahsulotda ishlatilgan furnitura' : 'Фурнитура, использованная в этом товаре'}
-                  </p>
-                </div>
-                <div className="divide-y">
-                  {product.furniture.map((item) => (
-                    <FurnitureCard key={item.id} item={item} language={language as 'uz' | 'ru'} quantity={item.quantity} variant="row" />
-                  ))}
-                </div>
-              </div>
-            )}
             {images.length > 1 && (
               <Carousel
                 opts={{ align: 'start', dragFree: false }}
@@ -328,12 +314,19 @@ export default function ProductDetails() {
             {description && <p className="text-muted-foreground mb-6">{description}</p>}
 
             {price > 0 && (
-              <div className="flex items-baseline gap-3 mb-6">
-                <span className="font-serif text-3xl font-bold">{formatPrice(price)}</span>
-                <span className="text-muted-foreground">{t.products.currency}</span>
-                {product.original_price && product.original_price > price && (
-                  <span className="text-lg text-muted-foreground line-through">
-                    {formatPrice(product.original_price)}
+              <div className="flex items-center gap-3 mb-6 flex-wrap">
+                <div className="flex items-baseline gap-3">
+                  <span className="font-serif text-3xl font-bold">{formatPrice(price)}</span>
+                  <span className="text-muted-foreground">{t.products.currency}</span>
+                  {hasDiscount && (
+                    <span className="text-lg text-muted-foreground line-through">
+                      {formatPrice(product.original_price as number)}
+                    </span>
+                  )}
+                </div>
+                {hasDiscount && (
+                  <span className="bg-foreground text-background text-xs font-semibold tracking-wider uppercase px-2.5 py-1 rounded-lg">
+                    −{discountPct}%
                   </span>
                 )}
               </div>
@@ -440,6 +433,40 @@ export default function ProductDetails() {
 
           </div>
         </div>
+
+        {/* Furniture / fittings — full-width section, below the image/info grid */}
+        {Array.isArray(product.furniture) && product.furniture.length > 0 && (
+          <div className="mt-12 rounded-2xl border overflow-hidden bg-card">
+            <div className="px-4 pt-4 pb-2">
+              <h4 className="font-medium">{language === 'uz' ? 'Furnituralar' : 'Фурнитура'}</h4>
+              <p className="text-xs text-muted-foreground">
+                {language === 'uz' ? 'Ushbu mahsulotda ishlatilgan furnitura' : 'Фурнитура, использованная в этом товаре'}
+              </p>
+            </div>
+            <div className={product.furniture.length > 4 ? 'grid grid-cols-1 sm:grid-cols-2' : 'divide-y'}>
+              {product.furniture.map((item, idx) => {
+                const useGrid = product.furniture.length > 4;
+                if (!useGrid) {
+                  return (
+                    <FurnitureCard key={item.id} item={item} language={language as 'uz' | 'ru'} quantity={item.quantity} variant="row" />
+                  );
+                }
+                const total = product.furniture.length;
+                const lastRowStart = total - (total % 2 === 0 ? 2 : 1);
+                const isLastRow = idx >= lastRowStart;
+                const hasRightNeighbor = idx % 2 === 0 && idx + 1 < total;
+                return (
+                  <div
+                    key={item.id}
+                    className={`border-b last:border-b-0 ${isLastRow ? 'sm:border-b-0' : ''} ${hasRightNeighbor ? 'sm:border-r' : ''}`}
+                  >
+                    <FurnitureCard item={item} language={language as 'uz' | 'ru'} quantity={item.quantity} variant="row" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         {(fullDescription || description) && (

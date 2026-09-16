@@ -76,6 +76,8 @@ function mapProductFurniture(item: any) {
       model: link.furniture.model,
       article: link.furniture.article,
       image: link.furniture.image,
+      descriptionUz: link.furniture.descriptionUz,
+      descriptionRu: link.furniture.descriptionRu,
       category: link.furniture.category
         ? { id: link.furniture.category.id, nameUz: link.furniture.category.nameUz, nameRu: link.furniture.category.nameRu }
         : null,
@@ -204,18 +206,22 @@ productsRouter.get(
       where.id = where.id ? { in: (where.id as { in: string[] }).in.filter((id) => discountedIds.includes(id)) } : { in: discountedIds };
     }
 
-    // Only the admin product list needs each row's attached furniture (to prefill the
-    // edit dialog's "Furnituralar" tab without a second request) — the public catalog
-    // list never renders it, so skip the extra join there.
+    // The admin product list needs each row's full attached furniture (to prefill the
+    // edit dialog's "Furnituralar" tab without a second request). The public catalog
+    // list only needs a small furniture/brand summary for the product card, so it's
+    // capped at 3 per product — still a single join query, no N+1.
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: req.user
-          ? { furnitureLinks: { include: { furniture: { include: { category: true } } } } }
-          : undefined,
+        include: {
+          furnitureLinks: {
+            include: { furniture: { include: { category: true } } },
+            ...(req.user ? {} : { take: 3, orderBy: { createdAt: 'asc' as const } }),
+          },
+        },
       }),
       prisma.product.count({ where }),
     ]);

@@ -19,6 +19,8 @@ export interface ProductFurnitureItem {
   model: string | null;
   article: string | null;
   image: string | null;
+  description_uz: string | null;
+  description_ru: string | null;
   category: { id: string; name_uz: string; name_ru: string } | null;
   quantity: number;
 }
@@ -149,6 +151,8 @@ export function mapApiProduct(p: any): Product {
           model: f.model,
           article: f.article,
           image: f.image,
+          description_uz: f.descriptionUz ?? null,
+          description_ru: f.descriptionRu ?? null,
           category: f.category
             ? { id: f.category.id, name_uz: f.category.nameUz, name_ru: f.category.nameRu }
             : null,

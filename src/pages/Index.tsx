@@ -20,8 +20,6 @@ import { PROMO_ICONS } from '@/lib/promoIcons';
 import { CollectionBanners, DiscountBanner, InspirationSection, FeatureStrip } from '@/components/home/HomeSections';
 
 
-import serviceKitchen from '@/assets/service-kitchen.jpg';
-
 const HOME_PROMO_ICONS: Record<string, LucideIcon> = PROMO_ICONS;
 
 // Keyword match on category name/slug — the DB `icon` field isn't populated by any
@@ -58,267 +56,50 @@ function useInView(threshold = 0.15) {
   return { ref, isVisible };
 }
 
-function SetsCarousel({ sets, productsBySet, language, fallbackImage }: {
-  sets: ReturnType<typeof useActiveSets>['sets'];
-  productsBySet: ReturnType<typeof useActiveSets>['productsBySet'];
+function SetSection({ set, products, language }: {
+  set: ReturnType<typeof useActiveSets>['sets'][number];
+  products: ReturnType<typeof useActiveSets>['productsBySet'][string];
   language: 'uz' | 'ru';
-  fallbackImage: string;
 }) {
-  const [current, setCurrent] = useState(0);
-  const [incoming, setIncoming] = useState<number | null>(null);
-  const [direction, setDirection] = useState<1 | -1>(1);
-  const [animating, setAnimating] = useState(false);
-  const count = sets.length;
-  const touchStartX = useRef<number | null>(null);
-  const DURATION = 800;
-  const INNER_DURATION = 650;
-  const PAGE = 2;
-  const STEP_MS = 5000;
+  const PAGE_SIZE = 4;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // inner products pager: sliding by 1 (window of 2 visible, wraps around)
-  const [innerStart, setInnerStart] = useState(0);
-  const [innerAnimating, setInnerAnimating] = useState(false);
-  // Pause autoplay briefly after user interaction so clicks aren't fought by the timer
-  const [pausedUntil, setPausedUntil] = useState(0);
-  const pauseAutoplay = (ms = 6000) => setPausedUntil(Date.now() + ms);
+  if (!products.length) return null;
 
-  // NOTE: previously we eagerly preloaded every set image AND every product
-  // image using `new Image()`. That fired dozens of requests during initial
-  // page load and starved the LCP hero image of bandwidth. Removed — images
-  // now load naturally via <img loading="lazy"> when the carousel slides.
-
-
-  const productsOf = (s: (typeof sets)[number]) => productsBySet[s.id] || [];
-
-  const go = (next: number) => {
-    if (animating) return;
-    const n = ((next % count) + count) % count;
-    if (n === current) return;
-    const dir: 1 | -1 = n > current || (current === count - 1 && n === 0) ? 1 : -1;
-    setDirection(dir);
-    // Reset inner window immediately so the incoming set starts at item 0
-    // (otherwise products would visually "jump" after the crossfade completes)
-    setInnerStart(0);
-    setInnerAnimating(false);
-    setIncoming(n);
-    requestAnimationFrame(() => requestAnimationFrame(() => setAnimating(true)));
-    window.setTimeout(() => {
-      setCurrent(n);
-      setIncoming(null);
-      setAnimating(false);
-    }, DURATION);
-  };
-
-  const goInnerNext = () => {
-    if (innerAnimating || animating) return;
-    requestAnimationFrame(() => requestAnimationFrame(() => setInnerAnimating(true)));
-    window.setTimeout(() => {
-      setInnerStart((s) => s + 1);
-      setInnerAnimating(false);
-    }, INNER_DURATION);
-  };
-
-  const set = sets[current];
-  const productsLen = set ? productsOf(set).length : 0;
-  const canInnerSlide = productsLen > PAGE;
-
-  // unified autoplay: slide inner by 1 each tick; advance to next set after full loop
-  useEffect(() => {
-    if (count <= 1 && !canInnerSlide) return;
-    const t = setInterval(() => {
-      if (animating || innerAnimating) return;
-      if (Date.now() < pausedUntil) return;
-      if (canInnerSlide) {
-        // after innerStart wraps fully (productsLen steps), advance set
-        if (count > 1 && productsLen > 0 && innerStart > 0 && innerStart % productsLen === 0) {
-          go(current + 1);
-        } else {
-          goInnerNext();
-        }
-      } else if (count > 1) {
-        go(current + 1);
-      }
-    }, STEP_MS);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, current, innerStart, canInnerSlide, productsLen, animating, innerAnimating, pausedUntil]);
-
-
-  if (!set) return null;
-
-  const EmptyCard = ({ hideOnMobile = false }: { hideOnMobile?: boolean }) => (
-    <div
-      className={`aspect-square ${hideOnMobile ? 'hidden lg:block' : 'block'}`}
-      aria-hidden="true"
-    />
-  );
-
-  const renderPair = (items: ReturnType<typeof productsOf>) => (
-    <div className="grid grid-cols-2 gap-2 lg:gap-4 w-full my-0 mx-0 px-0 py-[5px]">
-      {items.length > 0 ? (
-        <>
-          {items.map((p, i) => (
-            <div key={(p?.id || 'e') + '-' + i} className="h-full">
-              <ProductCard product={p} imageAspect="aspect-[4/5]" imageFit="cover" compact />
-            </div>
-          ))}
-          {items.length === 1 && <EmptyCard />}
-        </>
-      ) : (
-        <>
-          <EmptyCard />
-          <EmptyCard />
-        </>
-      )}
-    </div>
-  );
-
-
-  const renderSlide = (s: typeof set, withInner: boolean) => {
-    const title = language === 'uz' ? s.title_uz : s.title_ru;
-    const all = productsOf(s);
-    const innerOn = withInner && all.length > PAGE;
-    // Build sliding window: render 3 cards (current pair + next-after) so we can slide left by 1 card
-    const at = (i: number) => all[((i % all.length) + all.length) % all.length];
-    const startIdx = innerOn ? innerStart : 0;
-    const curItems = innerOn
-      ? [at(startIdx), at(startIdx + 1)]
-      : all.slice(0, PAGE);
-    const tailItem = innerOn ? at(startIdx + 2) : null;
-    const showInnerTrack = innerOn;
-    // track width = 200% (two pairs), translate -50% slides one card forward (overlapping pair)
-    const innerTranslate = !showInnerTrack ? '0%' : (innerAnimating ? '-50%' : '0%');
-
-    return (
-      <div className="w-full">
-        <div className="flex items-end justify-between mb-8">
-          <h2 className="font-serif text-4xl lg:text-5xl font-bold text-foreground tracking-tight">
-            <span className="inline-block">{title}</span>
-            
-          </h2>
-          <Link
-            to={`/catalog?set=${s.id}`}
-            className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {language === 'uz' ? 'Barchasi' : 'Все'}
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_2fr] gap-2 lg:gap-6 bg-background isolate">
-          <Link
-            to={`/catalog?set=${s.id}`}
-            className="relative aspect-[16/10] lg:aspect-auto rounded-[2rem] overflow-hidden bg-card group"
-          >
-            <img
-              src={s.image || fallbackImage}
-              alt={title}
-              loading="lazy"
-              decoding="async"
-              width={800}
-              height={500}
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-luxe"
-            />
-
-          </Link>
-          <div className="relative overflow-hidden bg-background">
-            <div
-              className="flex"
-              style={{
-                width: showInnerTrack ? '200%' : '100%',
-                transform: `translate3d(${innerTranslate}, 0, 0)`,
-                transition: innerAnimating
-                  ? `transform ${INNER_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1)`
-                  : 'none',
-              }}
-            >
-              <div className="shrink-0" style={{ width: showInnerTrack ? '50%' : '100%' }}>
-                {renderPair(curItems)}
-              </div>
-              {showInnerTrack && tailItem && (
-                <div className="shrink-0" style={{ width: '50%' }}>
-                  {renderPair([curItems[1], tailItem])}
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </div>
-    );
-  };
-
-  // Outer: forward (→) track = [current, incoming], translate 0% → -50%
-  //        backward (←) track = [incoming, current], translate -50% → 0%
-  // Outer transition: crossfade (no horizontal bleed of neighboring sets)
-  const showTrack = incoming !== null;
-  const incomingSet = incoming !== null ? sets[incoming] : null;
+  const title = language === 'uz' ? set.title_uz : set.title_ru;
+  const visible = products.slice(0, visibleCount);
+  const hasMore = visibleCount < products.length;
 
   return (
-    <div className="relative">
-      <div
-        className="relative py-4"
-        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-        onTouchEnd={(e) => {
-          if (touchStartX.current === null) return;
-          const dx = e.changedTouches[0].clientX - touchStartX.current;
-          if (Math.abs(dx) > 40) { pauseAutoplay(); go(current + (dx < 0 ? 1 : -1)); }
-          touchStartX.current = null;
-        }}
-      >
-        <div className="relative">
-          {/* Current set */}
-          <div
-            style={{
-              opacity: 1,
-            }}
-          >
-            {renderSlide(set, !showTrack)}
-          </div>
-          {/* Incoming set (absolute overlay, fades in) */}
-          {showTrack && incomingSet && (
-            <div
-              className="absolute inset-0 bg-background"
-              style={{
-                opacity: animating ? 1 : 0,
-                transition: `opacity ${DURATION}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-              }}
-            >
-              {renderSlide(incomingSet, false)}
-            </div>
-          )}
-        </div>
+    <div className="w-full">
+      <div className="flex items-end justify-between mb-8">
+        <h2 className="font-serif text-4xl lg:text-5xl font-bold text-foreground tracking-tight">
+          {title}
+        </h2>
+        <Link
+          to={`/catalog?set=${set.id}`}
+          className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {language === 'uz' ? 'Barchasi' : 'Все'}
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
-
-
-      {count > 1 && (
-        <div className="flex items-center justify-center gap-6 mt-10">
-          <button
-            onClick={() => { pauseAutoplay(); go(current - 1); }}
-            className="w-11 h-11 rounded-full border border-border flex items-center justify-center hover:bg-card hover:border-primary/40 transition-all hover:-translate-x-0.5"
-            aria-label="Previous"
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+        {visible.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+      {hasMore && (
+        <div className="mt-8 flex justify-center">
+          <Button
+            variant="outline"
+            className="rounded-full px-8"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
           >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            {Array.from({ length: count }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { pauseAutoplay(); go(i); }}
-                className={`h-2 rounded-full transition-all duration-500 ${i === current ? 'w-10 bg-primary' : 'w-2 bg-border hover:bg-muted-foreground/40'}`}
-                aria-label={`Slide ${i + 1}`}
-              />
-            ))}
-          </div>
-          <button
-            onClick={() => { pauseAutoplay(); go(current + 1); }}
-            className="w-11 h-11 rounded-full border border-border flex items-center justify-center hover:bg-card hover:border-primary/40 transition-all hover:translate-x-0.5"
-            aria-label="Next"
-          >
-            <ArrowRight className="w-4 h-4" />
-          </button>
+            {language === 'uz' ? 'Yana' : 'Ещё'}
+          </Button>
         </div>
       )}
-
     </div>
   );
 }
@@ -636,24 +417,25 @@ export default function Index() {
 
 
 
-      {/* ============ SETLAR TO'PLAMI (DB-driven sets, carousel) ============ */}
-      {(setsLoading || sets.length > 0) && (
+      {/* ============ SETLAR TO'PLAMI (DB-driven sets, static grid per set) ============ */}
+      {setsLoading ? (
         <section ref={sec3.ref} className="container mx-auto px-4 lg:px-8 mt-16 lg:mt-24">
-          {setsLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr_1fr] gap-4 lg:gap-6">
-              <div className="aspect-[4/3] lg:aspect-auto rounded-[2rem] bg-card animate-pulse" />
-              <div className="aspect-[3/4] rounded-[2rem] bg-card animate-pulse" />
-              <div className="aspect-[3/4] rounded-[2rem] bg-card animate-pulse" />
-            </div>
-          ) : (
-            <SetsCarousel
-              sets={sets}
-              productsBySet={productsBySet}
-              language={language}
-              fallbackImage={serviceKitchen}
-            />
-          )}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="aspect-square rounded-2xl bg-card animate-pulse" />
+            ))}
+          </div>
         </section>
+      ) : (
+        sets.map((s, i) => (
+          <section
+            key={s.id}
+            ref={i === 0 ? sec3.ref : undefined}
+            className="container mx-auto px-4 lg:px-8 mt-16 lg:mt-24"
+          >
+            <SetSection set={s} products={productsBySet[s.id] || []} language={language} />
+          </section>
+        ))
       )}
 
 
