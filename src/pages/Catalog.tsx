@@ -458,7 +458,7 @@ export default function Catalog() {
                       </p>
                       <ul className="space-y-0.5">
                         {[
-                          ...sections.map(s => ({
+                          ...sections.filter(s => s.show_in_main_nav !== false).map(s => ({
                             id: s.id,
                             name: catName(s),
                             parents: categories.filter(c => !c.parent_id && c.section_id === s.id),
@@ -614,7 +614,7 @@ export default function Catalog() {
                 </p>
 
                 {loading ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {Array.from({ length: 8 }).map((_, i) => (
                       <div key={i} className="bg-card rounded-2xl overflow-hidden shadow-warm animate-pulse">
                         <div className="aspect-[4/3] bg-muted" />
@@ -627,7 +627,7 @@ export default function Catalog() {
                   </div>
                 ) : products.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {products.map(product => (
                         <ProductCard key={product.id} product={product} />
                       ))}

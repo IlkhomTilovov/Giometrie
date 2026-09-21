@@ -31,9 +31,12 @@ interface ProductCardProps {
   compact?: boolean;
   /** 'grid' renders a compact price + round add-to-cart button row, for dense mobile grids. */
   variant?: 'default' | 'grid';
+  /** Materials (LDSP, laminate, etc.) aren't ordered through the cart — no "Buyurtma
+   *  berish" / "Batafsil" buttons; the whole card just links to the product page. */
+  isMaterial?: boolean;
 }
 
-export function ProductCard({ product, eager = false, imageAspect = 'aspect-square', imageFit = 'cover', compact = false, variant = 'default' }: ProductCardProps) {
+export function ProductCard({ product, eager = false, imageAspect = 'aspect-square', imageFit = 'cover', compact = false, variant = 'default', isMaterial = false }: ProductCardProps) {
   const { language, t } = useLanguage();
   const { addItem, isInCart } = useCart();
   const { toggle: toggleWishlist, isWishlisted } = useWishlist();
@@ -195,17 +198,19 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
 
         <div className={`flex flex-col mt-auto ${showRich ? 'pt-3' : compact ? 'pt-0.5' : 'pt-1.5'}`}>
           {variant === 'grid' ? (
-            <div className="flex items-end justify-between gap-2">
-              <div className="flex flex-col leading-tight min-w-0">
-                {hasDiscount && (
-                  <span className="text-muted-foreground line-through tabular-nums text-[10px]">
-                    {formatPrice(originalPrice as number)} {t.products.currency}
+            <div className="flex items-end justify-end gap-2">
+              {price > 0 && (
+                <div className="flex flex-col leading-tight min-w-0 mr-auto">
+                  {hasDiscount && (
+                    <span className="text-muted-foreground line-through tabular-nums text-[10px]">
+                      {formatPrice(originalPrice as number)} {t.products.currency}
+                    </span>
+                  )}
+                  <span className="font-sans font-bold text-foreground tracking-tight tabular-nums text-sm truncate">
+                    {formatPrice(price)} {t.products.currency}
                   </span>
-                )}
-                <span className="font-sans font-bold text-foreground tracking-tight tabular-nums text-sm truncate">
-                  {formatPrice(price)} {t.products.currency}
-                </span>
-              </div>
+                </div>
+              )}
               <Button
                 type="button"
                 size="icon"
@@ -218,25 +223,33 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
               </Button>
             </div>
           ) : showRich ? (
-            <>
+            isMaterial ? (
+              <Link
+                to={productUrl}
+                className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>{language === 'uz' ? "Batafsil ko'rish" : 'Подробнее'}</span>
+                <ChevronRight className="w-5 h-5 shrink-0" />
+              </Link>
+            ) : (
               <div className="mt-3 flex gap-2 border-t border-border/60 pt-3">
                 <Button
                   variant={inCart ? 'secondary' : 'default'}
                   aria-label={inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}
-                  className="flex-[3] gap-1.5 rounded-full shadow-soft-sm hover:shadow-soft-md transition-all duration-300 h-11"
+                  className="flex-[3] min-w-0 gap-1.5 rounded-full shadow-soft-sm hover:shadow-soft-md transition-all duration-300 h-11"
                   onClick={handleAddToCart}
                 >
-                  {inCart ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
-                  {inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}
+                  {inCart ? <Check className="w-4 h-4 shrink-0" /> : <ShoppingCart className="w-4 h-4 shrink-0" />}
+                  <span className="truncate">{inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}</span>
                 </Button>
-                <Button variant="outline" asChild className="flex-[2] gap-1 rounded-full h-11">
-                  <Link to={productUrl}>
-                    {language === 'uz' ? "Batafsil" : 'Подробнее'}
-                    <ChevronRight className="w-4 h-4" />
+                <Button variant="outline" asChild className="flex-[2] min-w-0 gap-1 rounded-full h-11">
+                  <Link to={productUrl} className="min-w-0">
+                    <span className="truncate">{language === 'uz' ? "Batafsil" : 'Подробнее'}</span>
+                    <ChevronRight className="w-4 h-4 shrink-0" />
                   </Link>
                 </Button>
               </div>
-            </>
+            )
           ) : (
             <>
               {price > 0 && (

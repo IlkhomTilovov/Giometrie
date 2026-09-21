@@ -76,6 +76,7 @@ const navGroups: NavGroup[] = [
       { titleKey: 'navSections', url: '/admin/sections', icon: LayoutGrid, module: 'categories' },
       { titleKey: 'navCategories', url: '/admin/categories', icon: FolderTree, module: 'categories' },
       { titleKey: 'navProducts', url: '/admin/products', icon: Package, module: 'products' },
+      { titleKey: 'navMaterials', url: '/admin/materials', icon: Boxes, module: 'products' },
       { titleKey: 'navFurniture', url: '/admin/furniture', icon: Wrench, module: 'products' },
       { titleKey: 'navPromoTiles', url: '/admin/promo-tiles', icon: LayoutGrid, module: 'siteContent' },
       { titleKey: 'navSets', url: '/admin/sets', icon: Layers, module: 'siteContent' },

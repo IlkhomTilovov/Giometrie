@@ -15,7 +15,8 @@ import {
   Package,
   GripVertical,
   RefreshCw,
-  Video
+  Video,
+  FileText
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/integrations/api/client';
 import { toCamelCase } from '@/lib/caseConvert';
@@ -43,6 +44,8 @@ import { PROMO_ICONS } from '@/lib/promoIcons';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AttributesEditor, ProductAttribute } from '@/components/admin/AttributesEditor';
 import { FurnitureSelector, FurnitureSelection } from '@/components/admin/FurnitureSelector';
+import { MaterialSelector, MaterialSelection } from '@/components/admin/MaterialSelector';
+import { useSections } from '@/hooks/useProducts';
 import type { ProductFurnitureItem } from '@/hooks/useProducts';
 import { useAllLanguages } from '@/hooks/useLanguages';
 import { LocalizedField, LocalizedTextarea } from '@/components/admin/LocalizedField';
@@ -55,6 +58,7 @@ interface Category {
   name_uz: string;
   name_ru: string;
   parent_id?: string | null;
+  section_id?: string | null;
 }
 
 interface Product {
@@ -100,6 +104,7 @@ interface Product {
   promo_tile_ids: string[] | null;
   attributes?: ProductAttribute[] | null;
   furniture?: ProductFurnitureItem[] | null;
+  certificates?: string[] | null;
 }
 
 interface FormData {
@@ -115,6 +120,7 @@ interface FormData {
   price: string;
   original_price: string;
   images: string[];
+  certificates: string[];
   materials: string;
   sizes: string;
   colors: string;
@@ -138,6 +144,7 @@ interface FormData {
   promo_tile_ids: string[];
   attributes: ProductAttribute[];
   furniture_items: FurnitureSelection[];
+  material_items: MaterialSelection[];
 }
 
 const emptyForm: FormData = {
@@ -147,6 +154,7 @@ const emptyForm: FormData = {
   price: '',
   original_price: '',
   images: [],
+  certificates: [],
   materials: '',
   sizes: '',
   colors: '',
@@ -170,6 +178,7 @@ const emptyForm: FormData = {
   promo_tile_ids: [],
   attributes: [],
   furniture_items: [],
+  material_items: [],
 };
 
 function mapApiProductForAdmin(p: any): Product {
@@ -235,8 +244,9 @@ function mapApiProductForAdmin(p: any): Product {
 }
 
 const ADMIN_PAGE_SIZE = 20;
+const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000';
 
-export default function ProductsNew() {
+export default function ProductsNew({ scope = 'all' }: { scope?: 'all' | 'materials' } = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const { data: promoTilesList = [] } = useAllPromoTiles();
   const [totalCount, setTotalCount] = useState(0);
@@ -258,7 +268,15 @@ export default function ProductsNew() {
   const [activeTab, setActiveTab] = useState('basic');
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [quickCategoryOpen, setQuickCategoryOpen] = useState(false);
+  const [quickCategoryNameUz, setQuickCategoryNameUz] = useState('');
+  const [quickCategoryNameRu, setQuickCategoryNameRu] = useState('');
+  const [quickCategorySaving, setQuickCategorySaving] = useState(false);
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<Category | null>(null);
+  const [categoryDeleting, setCategoryDeleting] = useState(false);
+  const [uploadingCertificates, setUploadingCertificates] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const certificateInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -266,6 +284,7 @@ export default function ProductsNew() {
   const { language } = useLanguage();
   const t = useAdminT();
   const { languages } = useAllLanguages();
+  const { sections, loading: sectionsLoading } = useSections(scope === 'materials');
   const productName = (p: Product) => getTranslated(p.translations, language, 'name', language === 'ru' ? p.name_ru : p.name_uz);
   const categoryDisplayName = (c: { name_uz: string; name_ru: string }) => (language === 'uz' ? c.name_uz : c.name_ru);
 
@@ -273,11 +292,15 @@ export default function ProductsNew() {
   const L = language === 'ru' ? {
     editTitle: 'Редактировать товар',
     newTitle: 'Новый товар',
+    editTitleMaterial: 'Редактировать материал',
+    newTitleMaterial: 'Новый материал',
     tabBasic: 'Основное',
     tabDescription: 'Описание',
     tabImages: 'Изображения',
     tabAttributes: 'Характеристики',
     tabFurniture: 'Фурнитура',
+    tabMaterials: 'Материалы',
+    tabCertificates: 'Сертификаты',
     nameUz: 'Название (UZ) *',
     nameRu: 'Название (RU) *',
     phUz: "На узбекском",
@@ -351,11 +374,15 @@ export default function ProductsNew() {
   } : {
     editTitle: 'Mahsulotni tahrirlash',
     newTitle: 'Yangi mahsulot',
+    editTitleMaterial: 'Materialni tahrirlash',
+    newTitleMaterial: 'Yangi material',
     tabBasic: 'Asosiy',
     tabDescription: 'Tavsif',
     tabImages: 'Rasmlar',
     tabAttributes: 'Xususiyatlar',
     tabFurniture: 'Furnituralar',
+    tabMaterials: 'Materiallar',
+    tabCertificates: 'Sertifikatlar',
     nameUz: 'Nomi (UZ) *',
     nameRu: 'Nomi (RU) *',
     phUz: "O'zbek tilida",
@@ -437,14 +464,33 @@ export default function ProductsNew() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Section admins marked "don't show in the main nav" — /admin/materials scopes
+  // everything below to just this section's categories/products.
+  const materialsSection = scope === 'materials' ? sections.find(s => s.show_in_main_nav === false) : undefined;
+
+  const materialCategoryIds = (() => {
+    if (scope !== 'materials' || !materialsSection) return [] as string[];
+    const ids = new Set<string>();
+    const walk = (id: string) => {
+      ids.add(id);
+      categories.filter(c => c.parent_id === id).forEach(child => walk(child.id));
+    };
+    categories.filter(c => c.section_id === materialsSection.id).forEach(c => walk(c.id));
+    return Array.from(ids);
+  })();
+
+  const visibleCategories = scope === 'materials'
+    ? categories.filter(c => materialCategoryIds.includes(c.id))
+    : categories;
+
   // Categories ordered hierarchically: parents then children indented
   const orderedCategories = (() => {
-    const parents = categories.filter(c => !c.parent_id);
-    const orphans = categories.filter(c => c.parent_id && !categories.some(p => p.id === c.parent_id));
+    const parents = visibleCategories.filter(c => !c.parent_id);
+    const orphans = visibleCategories.filter(c => c.parent_id && !visibleCategories.some(p => p.id === c.parent_id));
     const result: Array<Category & { _depth: number }> = [];
     parents.forEach(p => {
       result.push({ ...p, _depth: 0 });
-      categories.filter(c => c.parent_id === p.id).forEach(child => {
+      visibleCategories.filter(c => c.parent_id === p.id).forEach(child => {
         result.push({ ...child, _depth: 1 });
       });
     });
@@ -457,19 +503,84 @@ export default function ProductsNew() {
   }, []);
 
   useEffect(() => {
+    if (scope === 'materials' && sectionsLoading) return;
     fetchProducts();
-  }, [currentPage, debouncedSearch, categoryFilter, statusFilter]);
+  }, [currentPage, debouncedSearch, categoryFilter, statusFilter, scope, sectionsLoading, materialsSection?.id, categories.length]);
 
   const fetchCategories = async () => {
     try {
       const { items } = await apiGet<{ items: any[] }>('/api/categories/admin');
       setCategories(
         items
-          .map((c) => ({ id: c.id, name_uz: c.nameUz, name_ru: c.nameRu, parent_id: c.parentId, _sort: c.sortOrder }))
+          .map((c) => ({ id: c.id, name_uz: c.nameUz, name_ru: c.nameRu, parent_id: c.parentId, section_id: c.sectionId, _sort: c.sortOrder }))
           .sort((a, b) => (a._sort ?? 0) - (b._sort ?? 0))
       );
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  // Lets the Materiallar admin screen add a new material category (e.g. "Parket")
+  // without leaving the page — it's created straight into the Materiallar section
+  // so it shows up in this page's Toifa dropdown immediately.
+  const handleCreateMaterialCategory = async () => {
+    if (!materialsSection) return;
+    const nameUz = quickCategoryNameUz.trim();
+    const nameRu = quickCategoryNameRu.trim();
+    if (!nameUz || !nameRu) {
+      toast({
+        variant: 'destructive',
+        title: language === 'ru' ? 'Ошибка' : 'Xatolik',
+        description: language === 'ru' ? 'Укажите название на обоих языках' : 'Ikkala tildagi nomni kiriting',
+      });
+      return;
+    }
+    setQuickCategorySaving(true);
+    try {
+      await apiPost(
+        '/api/categories',
+        toCamelCase({
+          name_uz: nameUz,
+          name_ru: nameRu,
+          slug: generateSlug(nameUz),
+          section_id: materialsSection.id,
+          is_active: true,
+        })
+      );
+      toast({
+        title: language === 'ru' ? 'Успех' : 'Muvaffaqiyat',
+        description: language === 'ru' ? 'Категория создана' : 'Toifa yaratildi',
+      });
+      setQuickCategoryNameUz('');
+      setQuickCategoryNameRu('');
+      setQuickCategoryOpen(false);
+      await fetchCategories();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: language === 'ru' ? 'Ошибка' : 'Xatolik', description: error.message });
+    } finally {
+      setQuickCategorySaving(false);
+    }
+  };
+
+  // Deleting a category never fails because of attached products — Product.categoryId
+  // is a nullable FK with onDelete: SetNull, so any product using this category simply
+  // becomes uncategorized. No confirmation-blocking count check is needed.
+  const handleDeleteMaterialCategory = async () => {
+    if (!categoryDeleteTarget) return;
+    setCategoryDeleting(true);
+    try {
+      await apiDelete(`/api/categories/${categoryDeleteTarget.id}`);
+      toast({
+        title: language === 'ru' ? 'Успех' : 'Muvaffaqiyat',
+        description: language === 'ru' ? 'Категория удалена' : "Toifa o'chirildi",
+      });
+      if (categoryFilter === categoryDeleteTarget.id) setCategoryFilter('all');
+      setCategoryDeleteTarget(null);
+      await fetchCategories();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: language === 'ru' ? 'Ошибка' : 'Xatolik', description: error.message });
+    } finally {
+      setCategoryDeleting(false);
     }
   };
 
@@ -485,6 +596,16 @@ export default function ProductsNew() {
         search: debouncedSearch || undefined,
         categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
       };
+      if (scope === 'materials' && categoryFilter === 'all') {
+        if (!materialsSection) {
+          setProducts([]);
+          setTotalCount(0);
+          setLoading(false);
+          return;
+        }
+        params.categoryId = undefined;
+        params.categoryIds = materialCategoryIds.length > 0 ? materialCategoryIds : [NO_MATCH_ID];
+      }
       if (statusFilter === 'active') params.isActive = true;
       else if (statusFilter === 'inactive') params.isActive = false;
       else {
@@ -594,7 +715,8 @@ export default function ProductsNew() {
 
   const openCreateDialog = () => {
     setSelectedProduct(null);
-    setFormData(emptyForm);
+    const defaultCategoryId = scope === 'materials' && materialCategoryIds.length === 1 ? materialCategoryIds[0] : '';
+    setFormData({ ...emptyForm, category_id: defaultCategoryId });
     setMediaItems([]);
     setSlugError('');
     setActiveTab('basic');
@@ -650,6 +772,8 @@ export default function ProductsNew() {
       promo_tile_ids: (product as any).promo_tile_ids || [],
       attributes: Array.isArray((product as any).attributes) ? (product as any).attributes : [],
       furniture_items: (product.furniture || []).map((f) => ({ furniture_id: f.id, quantity: f.quantity })),
+      material_items: ((product as any).material_products || []).map((m: any) => ({ material_id: m.id, quantity: m.quantity })),
+      certificates: (product as any).certificates || [],
     });
     setSlugError('');
     setActiveTab('basic');
@@ -736,6 +860,42 @@ export default function ProductsNew() {
     setFormData({ ...formData, images: serializeMediaItems(newMediaItems) });
   };
 
+  // Certificates accept images or PDFs — unlike product photos, they're never
+  // WebP-converted (a scanned PDF certificate must stay a PDF).
+  const handleCertificateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingCertificates(true);
+    const uploadedUrls: string[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `certificate-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('path', `certificates/${fileName}`);
+        const { url } = await apiUpload<{ url: string }>('/api/uploads', fd);
+        uploadedUrls.push(url);
+      }
+      setFormData((prev) => ({ ...prev, certificates: [...prev.certificates, ...uploadedUrls] }));
+      toast({
+        title: language === 'ru' ? 'Успех' : 'Muvaffaqiyat',
+        description: language === 'ru' ? `Загружено сертификатов: ${uploadedUrls.length}` : `${uploadedUrls.length} ta sertifikat yuklandi`,
+      });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: language === 'ru' ? 'Ошибка' : 'Xatolik', description: error.message });
+    } finally {
+      setUploadingCertificates(false);
+      if (certificateInputRef.current) certificateInputRef.current.value = '';
+    }
+  };
+
+  const removeCertificate = (index: number) => {
+    setFormData((prev) => ({ ...prev, certificates: prev.certificates.filter((_, i) => i !== index) }));
+  };
+
   const handleSubmit = async () => {
     const nameUz = (formData.translations.name.uz ?? '').trim();
     const nameRu = (formData.translations.name.ru ?? '').trim();
@@ -775,6 +935,7 @@ export default function ProductsNew() {
       price: formData.price ? parseFloat(formData.price) : null,
       original_price: formData.original_price ? parseFloat(formData.original_price) : null,
       images: formData.images,
+      certificates: formData.certificates || [],
       materials: formData.materials.split(',').map(s => s.trim()).filter(Boolean),
       sizes: formData.sizes.split(',').map(s => s.trim()).filter(Boolean),
       colors: formData.colors.split(',').map(s => s.trim()).filter(Boolean),
@@ -802,6 +963,7 @@ export default function ProductsNew() {
       promo_tile_ids: formData.promo_tile_ids || [],
       attributes: formData.attributes || [],
       furniture_items: formData.furniture_items || [],
+      material_items: formData.material_items || [],
     };
 
     try {
@@ -1023,8 +1185,16 @@ export default function ProductsNew() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{t.products.title}</h1>
-          <p className="text-muted-foreground">{t.products.subtitle}</p>
+          <h1 className="text-2xl font-bold">
+            {scope === 'materials' ? (language === 'ru' ? 'Материалы' : 'Materiallar') : t.products.title}
+          </h1>
+          <p className="text-muted-foreground">
+            {scope === 'materials'
+              ? (language === 'ru'
+                  ? 'Материалы отдельной страницы /materials'
+                  : "/materials alohida sahifasidagi materiallar")
+              : t.products.subtitle}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <input
@@ -1052,6 +1222,60 @@ export default function ProductsNew() {
           </Button>
         </div>
       </div>
+
+      {scope === 'materials' && !materialsSection && (
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            {language === 'ru'
+              ? 'Раздел для материалов ещё не настроен. Откройте "Разделы", создайте раздел и выключите у него переключатель "Показывать в главном меню".'
+              : '"Materiallar" bo\'limi hali sozlanmagan. "Bo\'limlar" sahifasiga o\'ting, yangi bo\'lim yarating va uning "Asosiy menyuda ko\'rsatish" tugmasini o\'chiring.'}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Material categories: count + inline add/delete, so this screen doesn't need
+          a trip to the separate "Toifalar" admin page for everyday LDSP/LMDF-style upkeep. */}
+      {scope === 'materials' && materialsSection && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-sm">
+                {language === 'ru'
+                  ? `Категории материалов (${visibleCategories.length})`
+                  : `Material toifalari (${visibleCategories.length} ta)`}
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => setQuickCategoryOpen(true)}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                {language === 'ru' ? 'Добавить' : "Qo'shish"}
+              </Button>
+            </div>
+            {visibleCategories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {language === 'ru' ? 'Категорий пока нет.' : "Hali toifa yo'q."}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {visibleCategories.map((cat) => (
+                  <span
+                    key={cat.id}
+                    className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 pl-3 pr-1.5 py-1 text-sm"
+                  >
+                    {categoryDisplayName(cat)}
+                    <button
+                      type="button"
+                      onClick={() => setCategoryDeleteTarget(cat)}
+                      className="rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={language === 'ru' ? 'Удалить категорию' : "Toifani o'chirish"}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>
@@ -1251,20 +1475,32 @@ export default function ProductsNew() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedProduct ? L.editTitle : L.newTitle}</DialogTitle>
+            <DialogTitle>
+              {scope === 'materials'
+                ? (selectedProduct ? L.editTitleMaterial : L.newTitleMaterial)
+                : (selectedProduct ? L.editTitle : L.newTitle)}
+            </DialogTitle>
           </DialogHeader>
-          
+
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className={`grid w-full ${scope === 'materials' ? 'grid-cols-5' : 'grid-cols-7'}`}>
               <TabsTrigger value="basic">{L.tabBasic}</TabsTrigger>
               <TabsTrigger value="description">{L.tabDescription}</TabsTrigger>
               <TabsTrigger value="images">{L.tabImages}</TabsTrigger>
               <TabsTrigger value="attributes">{L.tabAttributes}</TabsTrigger>
-              <TabsTrigger value="furniture">{L.tabFurniture}</TabsTrigger>
-              <TabsTrigger value="seo" className="gap-1">
-                <Globe className="h-3 w-3" />
-                SEO
-              </TabsTrigger>
+              {scope === 'materials' && (
+                <TabsTrigger value="certificates">{L.tabCertificates}</TabsTrigger>
+              )}
+              {scope !== 'materials' && (
+                <>
+                  <TabsTrigger value="furniture">{L.tabFurniture}</TabsTrigger>
+                  <TabsTrigger value="materials">{L.tabMaterials}</TabsTrigger>
+                  <TabsTrigger value="seo" className="gap-1">
+                    <Globe className="h-3 w-3" />
+                    SEO
+                  </TabsTrigger>
+                </>
+              )}
             </TabsList>
 
             {/* Basic Tab */}
@@ -1313,77 +1549,83 @@ export default function ProductsNew() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>{L.promoTiles}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {L.promoHint}
-                </p>
-                {promoTilesList.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">{L.noPromo}</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                    {promoTilesList.map((tile) => {
-                      const Icon = PROMO_ICONS[tile.icon] || PROMO_ICONS.Sparkles;
-                      const checked = formData.promo_tile_ids.includes(tile.id);
-                      return (
-                        <label
-                          key={tile.id}
-                          className="flex items-center gap-2 cursor-pointer rounded-md px-2 py-1.5 hover:bg-accent"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              const next = v
-                                ? [...formData.promo_tile_ids, tile.id]
-                                : formData.promo_tile_ids.filter((id) => id !== tile.id);
-                              setFormData({ ...formData, promo_tile_ids: next });
-                            }}
-                          />
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="text-sm truncate">
-                            {language === 'uz' ? tile.title_uz : tile.title_ru}
-                            {!tile.is_active && (
-                              <span className="ml-1 text-xs text-muted-foreground">{L.inactive}</span>
-                            )}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {scope !== 'materials' && (
+                <div className="space-y-2">
+                  <Label>{L.promoTiles}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {L.promoHint}
+                  </p>
+                  {promoTilesList.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">{L.noPromo}</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                      {promoTilesList.map((tile) => {
+                        const Icon = PROMO_ICONS[tile.icon] || PROMO_ICONS.Sparkles;
+                        const checked = formData.promo_tile_ids.includes(tile.id);
+                        return (
+                          <label
+                            key={tile.id}
+                            className="flex items-center gap-2 cursor-pointer rounded-md px-2 py-1.5 hover:bg-accent"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                const next = v
+                                  ? [...formData.promo_tile_ids, tile.id]
+                                  : formData.promo_tile_ids.filter((id) => id !== tile.id);
+                                setFormData({ ...formData, promo_tile_ids: next });
+                              }}
+                            />
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="text-sm truncate">
+                              {language === 'uz' ? tile.title_uz : tile.title_ru}
+                              {!tile.is_active && (
+                                <span className="ml-1 text-xs text-muted-foreground">{L.inactive}</span>
+                              )}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{L.price}</Label>
-                  <Input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="0"
-                  />
+              {scope !== 'materials' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{L.price}</Label>
+                    <Input
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{L.oldPrice}</Label>
+                    <Input
+                      type="number"
+                      value={formData.original_price}
+                      onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{L.oldPrice}</Label>
-                  <Input
-                    type="number"
-                    value={formData.original_price}
-                    onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
+              )}
 
               <Separator />
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.is_negotiable}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_negotiable: checked })}
-                  />
-                  <Label>{L.negotiable}</Label>
-                </div>
+                {scope !== 'materials' && (
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.is_negotiable}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_negotiable: checked })}
+                    />
+                    <Label>{L.negotiable}</Label>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={formData.in_stock}
@@ -1398,13 +1640,15 @@ export default function ProductsNew() {
                   />
                   <Label>{L.featured}</Label>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.show_in_discount_banner}
-                    onCheckedChange={(checked) => setFormData({ ...formData, show_in_discount_banner: checked })}
-                  />
-                  <Label>{L.discountBanner}</Label>
-                </div>
+                {scope !== 'materials' && (
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.show_in_discount_banner}
+                      onCheckedChange={(checked) => setFormData({ ...formData, show_in_discount_banner: checked })}
+                    />
+                    <Label>{L.discountBanner}</Label>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={formData.is_active}
@@ -1501,16 +1745,101 @@ export default function ProductsNew() {
               />
             </TabsContent>
 
+            {/* Certificates Tab (Materiallar screen only) */}
+            {scope === 'materials' && (
+              <TabsContent value="certificates" className="space-y-4 mt-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'ru'
+                      ? 'Загрузите сертификаты качества/соответствия (изображение или PDF).'
+                      : 'Sifat/muvofiqlik sertifikatlarini yuklang (rasm yoki PDF).'}
+                  </p>
+                </div>
+
+                <input
+                  ref={certificateInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  onChange={handleCertificateUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => certificateInputRef.current?.click()}
+                  disabled={uploadingCertificates}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {uploadingCertificates
+                    ? (language === 'ru' ? 'Загрузка...' : 'Yuklanmoqda...')
+                    : (language === 'ru' ? 'Сертификат загрузить' : 'Sertifikat yuklash')}
+                </Button>
+
+                {formData.certificates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'ru' ? 'Сертификаты пока не загружены.' : "Hali sertifikat yuklanmagan."}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {formData.certificates.map((url, index) => {
+                      const isPdf = url.toLowerCase().endsWith('.pdf');
+                      return (
+                        <div key={url + index} className="relative rounded-lg border overflow-hidden group">
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                            {isPdf ? (
+                              <div className="aspect-square flex flex-col items-center justify-center gap-2 bg-muted/50">
+                                <FileText className="h-8 w-8 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">PDF</span>
+                              </div>
+                            ) : (
+                              <img
+                                src={url}
+                                alt={`Sertifikat ${index + 1}`}
+                                className="aspect-square w-full object-cover"
+                                onError={(e) => (e.currentTarget.src = '/placeholder.svg')}
+                              />
+                            )}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => removeCertificate(index)}
+                            className="absolute top-1.5 right-1.5 rounded-full bg-background/90 p-1 shadow hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            )}
+
             {/* Furniture Tab */}
-            <TabsContent value="furniture" className="space-y-4 mt-4">
-              <FurnitureSelector
-                value={formData.furniture_items}
-                onChange={(v) => setFormData({ ...formData, furniture_items: v })}
-                language={language as 'uz' | 'ru'}
-              />
-            </TabsContent>
+            {scope !== 'materials' && (
+              <TabsContent value="furniture" className="space-y-4 mt-4">
+                <FurnitureSelector
+                  value={formData.furniture_items}
+                  onChange={(v) => setFormData({ ...formData, furniture_items: v })}
+                  language={language as 'uz' | 'ru'}
+                />
+              </TabsContent>
+            )}
+
+            {/* Materials Tab */}
+            {scope !== 'materials' && (
+              <TabsContent value="materials" className="space-y-4 mt-4">
+                <MaterialSelector
+                  value={formData.material_items}
+                  onChange={(v) => setFormData({ ...formData, material_items: v })}
+                  language={language as 'uz' | 'ru'}
+                />
+              </TabsContent>
+            )}
 
             {/* SEO Tab */}
+            {scope !== 'materials' && (
             <TabsContent value="seo" className="space-y-6 mt-4">
               <div className="bg-muted/50 p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">
@@ -1780,6 +2109,7 @@ export default function ProductsNew() {
                 </div>
               </div>
             </TabsContent>
+            )}
           </Tabs>
 
           <DialogFooter className="mt-6">
@@ -1854,6 +2184,67 @@ export default function ProductsNew() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete category confirmation (Materiallar screen only) */}
+      <AlertDialog open={!!categoryDeleteTarget} onOpenChange={(open) => !open && setCategoryDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ru' ? 'Удалить категорию' : "Toifani o'chirish"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ru'
+                ? `Удалить категорию "${categoryDeleteTarget ? categoryDisplayName(categoryDeleteTarget) : ''}"? Товары в ней не удаляются, но останутся без категории.`
+                : `"${categoryDeleteTarget ? categoryDisplayName(categoryDeleteTarget) : ''}" toifasini o'chirmoqchimisiz? Undagi mahsulotlar o'chmaydi, lekin toifasiz qoladi.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'ru' ? 'Отмена' : 'Bekor qilish'}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMaterialCategory}
+              disabled={categoryDeleting}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {language === 'ru' ? 'Удалить' : "O'chirish"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Quick "add material category" dialog (Materiallar screen only) */}
+      <Dialog open={quickCategoryOpen} onOpenChange={setQuickCategoryOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === 'ru' ? 'Новая категория материала' : 'Yangi material toifasi'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{language === 'ru' ? 'Название (UZ) *' : 'Nomi (UZ) *'}</Label>
+              <Input
+                value={quickCategoryNameUz}
+                onChange={(e) => setQuickCategoryNameUz(e.target.value)}
+                placeholder={language === 'ru' ? 'Например: Паркет' : 'Masalan: Parket'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === 'ru' ? 'Название (RU) *' : 'Nomi (RU) *'}</Label>
+              <Input
+                value={quickCategoryNameRu}
+                onChange={(e) => setQuickCategoryNameRu(e.target.value)}
+                placeholder="Например: Паркет"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickCategoryOpen(false)}>
+              {language === 'ru' ? 'Отмена' : 'Bekor qilish'}
+            </Button>
+            <Button onClick={handleCreateMaterialCategory} disabled={quickCategorySaving}>
+              {language === 'ru' ? 'Создать' : 'Yaratish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Media Modal */}
       <AddMediaModal

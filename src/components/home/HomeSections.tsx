@@ -186,7 +186,7 @@ export function DiscountBanner({
               </Link>
             </Button>
           </div>
-          <div className="order-1 md:order-2 relative aspect-[16/10] md:aspect-auto md:h-full md:min-h-[320px]">
+          <div className="order-1 md:order-2 relative aspect-[16/10] md:aspect-[4/3] lg:aspect-[16/11]">
 
             {image && (
               <LazyImage

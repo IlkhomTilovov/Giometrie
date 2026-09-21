@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
-import { useFeaturedProducts, useCategories } from '@/hooks/useProducts';
+import { useFeaturedProducts, useCategories, useSections } from '@/hooks/useProducts';
 import { useActiveSets } from '@/hooks/useSets';
 import { usePromoTiles } from '@/hooks/usePromoTiles';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -14,7 +14,7 @@ import { EditableText } from '@/components/EditableText';
 import { EditableImage } from '@/components/EditableImage';
 import { HeroBento } from '@/components/home/HeroBento';
 import { PromoCarousel } from '@/components/home/PromoCarousel';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { getPageSeo } from '@/lib/pageSeo';
 import { PROMO_ICONS } from '@/lib/promoIcons';
 import { CollectionBanners, DiscountBanner, InspirationSection, FeatureStrip } from '@/components/home/HomeSections';
@@ -84,7 +84,7 @@ function SetSection({ set, products, language }: {
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
         {visible.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}
@@ -121,16 +121,36 @@ export default function Index() {
   // Eager (not gated behind shouldLoadBelowFoldData): the mobile category pill
   // row renders above the fold, right under the hero.
   const { categories, loading: categoriesLoading } = useCategories(true);
+  const { sections } = useSections(true);
   const { data: dbPromoTiles = [] } = usePromoTiles();
   const { sets, productsBySet, loading: setsLoading } = useActiveSets(true);
 
+  // The standalone "Materiallar" section (LDSP, LMDF, laminate, etc.) is its own
+  // dedicated page (/materials), not part of the regular catalog — its categories
+  // must never show up in the homepage's category carousel/pills/banners.
+  const materialCategoryIds = useMemo(() => {
+    const materialsSectionId = sections.find(s => s.show_in_main_nav === false)?.id;
+    if (!materialsSectionId) return new Set<string>();
+    const ids = new Set<string>();
+    const walk = (id: string) => {
+      ids.add(id);
+      categories.filter(c => c.parent_id === id).forEach(child => walk(child.id));
+    };
+    categories.filter(c => c.section_id === materialsSectionId).forEach(c => walk(c.id));
+    return ids;
+  }, [sections, categories]);
+  const nonMaterialCategories = useMemo(
+    () => categories.filter(c => !materialCategoryIds.has(c.id)),
+    [categories, materialCategoryIds]
+  );
+
   // Toifalarda eski hardcoded/fallback rasmlar umuman ko'rsatilmaydi.
   const categoriesLoaded = shouldLoadBelowFoldData && !categoriesLoading;
-  const cats = categoriesLoaded ? categories : [];
+  const cats = categoriesLoaded ? nonMaterialCategories : [];
   const catsReady = cats.length > 0;
   // Mobile icon-pill row sits above the fold, so it uses the eagerly-fetched
   // list directly instead of waiting for the scroll-gated `categoriesLoaded`.
-  const mobileCats = !categoriesLoading ? categories : [];
+  const mobileCats = !categoriesLoading ? nonMaterialCategories : [];
 
   // Toifalar carousel — one-at-a-time autoplay with seamless infinite loop
   const [catPerPage, setCatPerPage] = useState(4);
@@ -420,7 +440,7 @@ export default function Index() {
       {/* ============ SETLAR TO'PLAMI (DB-driven sets, static grid per set) ============ */}
       {setsLoading ? (
         <section ref={sec3.ref} className="container mx-auto px-4 lg:px-8 mt-16 lg:mt-24">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="aspect-square rounded-2xl bg-card animate-pulse" />
             ))}
@@ -454,7 +474,7 @@ export default function Index() {
               </Link>
             </Button>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {featuredProducts.slice(0, 4).map((p) => (
               <ProductCard key={p.id} product={p} variant="grid" />
             ))}

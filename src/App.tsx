@@ -27,6 +27,7 @@ import Index from "./pages/Index";
 
 // Lazy: all other public routes
 const Catalog = lazyWithRetry(() => import("./pages/Catalog"));
+const Materials = lazyWithRetry(() => import("./pages/Materials"));
 const ProductDetails = lazyWithRetry(() => import("./pages/ProductDetails"));
 const FurnitureDetails = lazyWithRetry(() => import("./pages/FurnitureDetails"));
 const About = lazyWithRetry(() => import("./pages/About"));
@@ -178,6 +179,11 @@ const App = () => (
                               <ProductsNew />
                             </ProtectedRoute>
                           } />
+                          <Route path="materials" element={
+                            <ProtectedRoute module="products">
+                              <ProductsNew scope="materials" />
+                            </ProtectedRoute>
+                          } />
                           <Route path="furniture" element={
                             <ProtectedRoute module="products">
                               <FurnitureAdmin />
@@ -261,6 +267,7 @@ const App = () => (
                               <Routes>
                                 <Route path="/" element={<Index />} />
                                 <Route path="/catalog" element={<Catalog />} />
+                                <Route path="/materials" element={<Materials />} />
                                 <Route path="/product/:id" element={<ProductDetails />} />
                                 <Route path="/furniture/:slug" element={<FurnitureDetails />} />
                                 <Route path="/about" element={<About />} />

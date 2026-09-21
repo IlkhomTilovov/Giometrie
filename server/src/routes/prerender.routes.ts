@@ -292,6 +292,21 @@ ${faqs.map((f) => `<h2>${esc(f.question_uz)}</h2>\n<p>${esc(f.answer_uz)}</p>`).
       return;
     }
 
+    // Materials page — standalone section kept out of the /catalog mega-menu
+    if (subPath === '/materials') {
+      const seo = getPageSeo('materials', 'uz');
+      res.send(
+        page({
+          siteUrl,
+          path: subPath,
+          title: seo.title,
+          description: seo.description,
+          bodyHtml: `<h1>${esc(seo.title)}</h1><p>${esc(seo.description)}</p>`,
+        })
+      );
+      return;
+    }
+
     // Contact page — list the real branches so crawlers see the actual
     // address(es) instead of a blank shell.
     if (subPath === '/contact') {

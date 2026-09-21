@@ -164,6 +164,29 @@ export function useAllFurniture(filters?: { search?: string; categoryId?: string
   return { furniture, loading, refetch };
 }
 
+// Public hook: fetches every active furniture item for the combined public
+// catalog page (src/pages/Materials.tsx).
+export function usePublicFurnitureList() {
+  const [furniture, setFurniture] = useState<Furniture[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    (async () => {
+      try {
+        const { items } = await apiGet<{ items: any[] }>('/api/furniture/public');
+        setFurniture(items.map(mapFurniture));
+      } catch (e) {
+        console.error('usePublicFurnitureList:', e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  return { furniture, loading };
+}
+
 // Public hook: fetches one active furniture item by slug for the public detail page
 // (src/pages/FurnitureDetails.tsx), including the products it's used in, the
 // categories it applies to, and same-category related furniture — all resolved

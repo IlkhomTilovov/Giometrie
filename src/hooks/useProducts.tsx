@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiGet } from '@/integrations/api/client';
 
 export interface ProductAttributeItem {
@@ -25,6 +25,18 @@ export interface ProductFurnitureItem {
   quantity: number;
 }
 
+// A "material" used to build this product — itself just another Product (one that
+// lives in the Materials section, e.g. an LDSP panel), linked via ProductMaterial.
+export interface ProductMaterialItem {
+  id: string;
+  name_uz: string;
+  name_ru: string;
+  slug: string | null;
+  images: string[];
+  price: number | null;
+  quantity: number;
+}
+
 export interface Product {
   id: string;
   name_uz: string;
@@ -39,6 +51,7 @@ export interface Product {
   price: number | null;
   original_price: number | null;
   images: string[] | null;
+  certificates: string[] | null;
   materials: string[] | null;
   sizes: string[] | null;
   colors: string[] | null;
@@ -57,6 +70,7 @@ export interface Product {
   meta_keywords: string | null;
   attributes: ProductAttributeItem[] | null;
   furniture: ProductFurnitureItem[] | null;
+  material_products: ProductMaterialItem[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -124,6 +138,7 @@ export function mapApiProduct(p: any): Product {
     price: p.price,
     original_price: p.originalPrice,
     images: p.images,
+    certificates: p.certificates || [],
     materials: p.materials,
     sizes: p.sizes,
     colors: p.colors,
@@ -157,6 +172,17 @@ export function mapApiProduct(p: any): Product {
             ? { id: f.category.id, name_uz: f.category.nameUz, name_ru: f.category.nameRu }
             : null,
           quantity: f.quantity,
+        }))
+      : null,
+    material_products: Array.isArray(p.materialProducts)
+      ? p.materialProducts.map((m: any) => ({
+          id: m.id,
+          name_uz: m.nameUz,
+          name_ru: m.nameRu,
+          slug: m.slug,
+          images: m.images || [],
+          price: m.price,
+          quantity: m.quantity,
         }))
       : null,
     created_at: p.createdAt,
@@ -323,7 +349,7 @@ export function useCategoriesWithState(enabled = true) {
 }
 
 export function useSections(enabled = true) {
-  const [sections, setSections] = useState<Array<{ id: string; name_uz: string; name_ru: string; translations: Record<string, { name?: string }> | null; slug: string; sort_order: number; is_active: boolean }>>([]);
+  const [sections, setSections] = useState<Array<{ id: string; name_uz: string; name_ru: string; translations: Record<string, { name?: string }> | null; slug: string; sort_order: number; is_active: boolean; show_in_main_nav: boolean }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -344,6 +370,7 @@ export function useSections(enabled = true) {
             slug: s.slug,
             sort_order: s.sortOrder,
             is_active: s.isActive,
+            show_in_main_nav: s.showInMainNav !== false,
           }))
         );
       } catch (err) {
@@ -357,6 +384,70 @@ export function useSections(enabled = true) {
   }, [enabled]);
 
   return { sections, loading };
+}
+
+// Admin hook for the "Materiallar" tab's picker (MaterialSelector): every product
+// filed under the standalone "Materials" section (and its subcategories) — the same
+// section /materials and /admin/materials scope to. `all=true` requires the caller to
+// be an authenticated admin (see optionalAuth in products.routes.ts) so drafts show up too.
+export function useAllMaterialProducts(filters?: { search?: string; categoryId?: string }) {
+  const { sections, loading: sectionsLoading } = useSections();
+  const { categories: allCategories, loading: categoriesLoading } = useCategories();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const materialsSection = useMemo(
+    () => sections.find((s) => s.show_in_main_nav === false),
+    [sections]
+  );
+
+  const categoryIds = useMemo(() => {
+    if (!materialsSection) return [] as string[];
+    const ids = new Set<string>();
+    const walk = (id: string) => {
+      ids.add(id);
+      allCategories.filter((c) => c.parent_id === id).forEach((child) => walk(child.id));
+    };
+    allCategories.filter((c) => c.section_id === materialsSection.id).forEach((c) => walk(c.id));
+    return Array.from(ids);
+  }, [materialsSection, allCategories]);
+
+  const categories = useMemo(
+    () => allCategories.filter((c) => categoryIds.includes(c.id)),
+    [allCategories, categoryIds]
+  );
+
+  const ready = !sectionsLoading && !categoriesLoading;
+  const categoryIdsKey = categoryIds.join(',');
+
+  useEffect(() => {
+    if (!ready) return;
+    if (categoryIds.length === 0) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    (async () => {
+      try {
+        const params: Record<string, unknown> = {
+          categoryIds: filters?.categoryId ? filters.categoryId : categoryIdsKey,
+          all: 'true',
+          pageSize: 200,
+        };
+        if (filters?.search) params.search = filters.search;
+        const data = await apiGet<{ items: any[] }>('/api/products', params);
+        setProducts((data.items || []).map(mapApiProduct));
+      } catch (err) {
+        console.error('useAllMaterialProducts:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, categoryIdsKey, filters?.categoryId, filters?.search]);
+
+  return { products, categories, loading };
 }
 
 export function useProductBySlug(slug: string) {

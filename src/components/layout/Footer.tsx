@@ -30,6 +30,7 @@ export function Footer() {
   const navLinks = [
     { to: '/', label: navLabels.home },
     { to: '/catalog', label: navLabels.catalog },
+    { to: '/materials', label: navLabels.materials },
     { to: '/about', label: navLabels.about },
     { to: '/contact', label: navLabels.contact },
   ];

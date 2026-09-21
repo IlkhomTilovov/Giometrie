@@ -62,12 +62,45 @@ async function syncProductFurniture(productId: string, items: FurnitureItemInput
   ]);
 }
 
-function mapProductFurniture(item: any) {
-  if (!item || !Array.isArray(item.furnitureLinks)) return item;
-  const { furnitureLinks, ...rest } = item;
-  return {
-    ...rest,
-    furniture: furnitureLinks.map((link: any) => ({
+interface MaterialItemInput {
+  materialId: string;
+  quantity?: number;
+}
+
+// Materials work the same way as furniture (see extractFurnitureItems above), except a
+// "material" is just another Product (one that lives in the Materials section) rather
+// than a separate Furniture row.
+function extractMaterialItems(body: Record<string, unknown>): MaterialItemInput[] | undefined {
+  const raw = body.materialItems;
+  delete body.materialItems;
+  if (!Array.isArray(raw)) return undefined;
+  return raw
+    .filter((row): row is MaterialItemInput => !!row && typeof row.materialId === 'string')
+    .map((row) => ({
+      materialId: row.materialId,
+      quantity: Math.max(1, Number(row.quantity) || 1),
+    }));
+}
+
+async function syncProductMaterials(productId: string, items: MaterialItemInput[]) {
+  await prisma.$transaction([
+    prisma.productMaterial.deleteMany({ where: { productId } }),
+    ...(items.length
+      ? [
+          prisma.productMaterial.createMany({
+            data: items.map((it) => ({ productId, materialId: it.materialId, quantity: it.quantity ?? 1 })),
+          }),
+        ]
+      : []),
+  ]);
+}
+
+function mapProductRelations(item: any) {
+  if (!item) return item;
+  const { furnitureLinks, materialLinks, ...rest } = item;
+  const mapped: any = { ...rest };
+  if (Array.isArray(furnitureLinks)) {
+    mapped.furniture = furnitureLinks.map((link: any) => ({
       id: link.furniture.id,
       nameUz: link.furniture.nameUz,
       nameRu: link.furniture.nameRu,
@@ -82,8 +115,20 @@ function mapProductFurniture(item: any) {
         ? { id: link.furniture.category.id, nameUz: link.furniture.category.nameUz, nameRu: link.furniture.category.nameRu }
         : null,
       quantity: link.quantity,
-    })),
-  };
+    }));
+  }
+  if (Array.isArray(materialLinks)) {
+    mapped.materialProducts = materialLinks.map((link: any) => ({
+      id: link.material.id,
+      nameUz: link.material.nameUz,
+      nameRu: link.material.nameRu,
+      slug: link.material.slug,
+      images: link.material.images,
+      price: link.material.price,
+      quantity: link.quantity,
+    }));
+  }
+  return mapped;
 }
 
 productsRouter.get(
@@ -206,10 +251,10 @@ productsRouter.get(
       where.id = where.id ? { in: (where.id as { in: string[] }).in.filter((id) => discountedIds.includes(id)) } : { in: discountedIds };
     }
 
-    // The admin product list needs each row's full attached furniture (to prefill the
-    // edit dialog's "Furnituralar" tab without a second request). The public catalog
-    // list only needs a small furniture/brand summary for the product card, so it's
-    // capped at 3 per product — still a single join query, no N+1.
+    // The admin product list needs each row's full attached furniture/materials (to
+    // prefill the edit dialog's "Furnituralar"/"Materiallar" tabs without a second
+    // request). The public catalog list only needs a small summary for the product
+    // card, so it's capped at 3 per product — still a single join query, no N+1.
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -221,12 +266,16 @@ productsRouter.get(
             include: { furniture: { include: { category: true } } },
             ...(req.user ? {} : { take: 3, orderBy: { createdAt: 'asc' as const } }),
           },
+          materialLinks: {
+            include: { material: true },
+            ...(req.user ? {} : { take: 3, orderBy: { createdAt: 'asc' as const } }),
+          },
         },
       }),
       prisma.product.count({ where }),
     ]);
 
-    res.json({ items: items.map(mapProductFurniture), total, page, pageSize });
+    res.json({ items: items.map(mapProductRelations), total, page, pageSize });
   })
 );
 
@@ -240,12 +289,16 @@ productsRouter.get(
         include: { furniture: { include: { category: true } } },
         orderBy: { createdAt: 'asc' as const },
       },
+      materialLinks: {
+        include: { material: true },
+        orderBy: { createdAt: 'asc' as const },
+      },
     };
     const item = isUuid
       ? await prisma.product.findUnique({ where: { id: idOrSlug }, include })
       : await prisma.product.findUnique({ where: { slug: idOrSlug }, include });
     if (!item) return res.status(404).json({ error: 'Mahsulot topilmadi' });
-    res.json({ item: mapProductFurniture(item) });
+    res.json({ item: mapProductRelations(item) });
   })
 );
 
@@ -255,8 +308,10 @@ productsRouter.post(
   requirePermission('products', 'create'),
   asyncHandler(async (req, res) => {
     const furnitureItems = extractFurnitureItems(req.body);
+    const materialItems = extractMaterialItems(req.body);
     const item = await prisma.product.create({ data: req.body });
     if (furnitureItems) await syncProductFurniture(item.id, furnitureItems);
+    if (materialItems) await syncProductMaterials(item.id, materialItems);
     res.status(201).json({ item });
   })
 );
@@ -267,8 +322,10 @@ productsRouter.patch(
   requirePermission('products', 'edit'),
   asyncHandler(async (req, res) => {
     const furnitureItems = extractFurnitureItems(req.body);
+    const materialItems = extractMaterialItems(req.body);
     const item = await prisma.product.update({ where: { id: req.params.id }, data: req.body });
     if (furnitureItems) await syncProductFurniture(item.id, furnitureItems);
+    if (materialItems) await syncProductMaterials(item.id, materialItems);
     res.json({ item });
   })
 );

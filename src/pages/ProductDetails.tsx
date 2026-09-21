@@ -1,17 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingBag, MessageCircle, Phone, Check, Loader2, Play, Truck, RotateCcw, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingBag, MessageCircle, Phone, Check, Loader2, Play, Truck, RotateCcw, ShieldCheck, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 import { ProductCard } from '@/components/ProductCard';
-import { FurnitureCard } from '@/components/FurnitureCard';
 import { ImageLightbox } from '@/components/ImageLightbox';
 import { LazyImage } from '@/components/LazyImage';
 import { VideoPlayerModal } from '@/components/VideoPlayerModal';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useSEO } from '@/hooks/useSEO';
 import { useCart } from '@/hooks/useCart';
-import { useProductById, useProducts, useCategories, Product } from '@/hooks/useProducts';
+import { useProductById, useProducts, useCategories, useSections, Product } from '@/hooks/useProducts';
 import { useAuth } from '@/hooks/useAuth';
 import { getAttributeIcon } from '@/lib/attributeIcons';
 import { getTranslated } from '@shared/translate';
@@ -39,6 +38,7 @@ export default function ProductDetails() {
   // Fetch product from database by ID or slug
   const { product, loading, error } = useProductById(id || '');
   const { categories } = useCategories();
+  const { sections } = useSections();
 
   const productName = product ? getTranslated(product.translations, language, 'name', language === 'ru' ? product.name_ru : product.name_uz) : '';
   const productDesc = product ? getTranslated(product.translations, language, 'description', (language === 'ru' ? product.description_ru : product.description_uz) || '') : '';
@@ -198,7 +198,6 @@ export default function ProductDetails() {
   const formatPrice = (price: number) => price.toLocaleString('uz-UZ');
   const inCart = isInCart(product.id);
   const images = galleryImages;
-  const materials = (language === 'ru' && (product as any).materials_ru?.length ? (product as any).materials_ru : product.materials) || [];
   const sizes = (language === 'ru' && (product as any).sizes_ru?.length ? (product as any).sizes_ru : product.sizes) || [];
   const colors = (language === 'ru' && (product as any).colors_ru?.length ? (product as any).colors_ru : product.colors) || [];
   const hasDiscount = !!(product.original_price && product.original_price > (product.price || 0));
@@ -210,6 +209,23 @@ export default function ProductDetails() {
   const categoryName = category
     ? getTranslated(category.translations, language, 'name', language === 'ru' ? category.name_ru : category.name_uz)
     : (product.category_id || '—');
+
+  // Materials (LDSP, LMDF, laminate, etc.) are reference items, not something sold
+  // directly through the cart — so "Add to cart" / "Get a consultation" don't apply.
+  // Detected by walking up the category's parent chain to the standalone Materials
+  // section (the one section admins marked "don't show in the main nav").
+  const materialsSectionId = sections.find(s => s.show_in_main_nav === false)?.id;
+  const isMaterialProduct = (() => {
+    if (!materialsSectionId || !category) return false;
+    let current: typeof category | undefined = category;
+    const visited = new Set<string>();
+    while (current && !visited.has(current.id)) {
+      if (current.section_id === materialsSectionId) return true;
+      visited.add(current.id);
+      current = categories.find(c => c.id === current!.parent_id);
+    }
+    return false;
+  })();
 
   const whatsappMessage = encodeURIComponent(
     `Assalomu alaykum! Men "${name}" mahsulotiga qiziqyapman.\n\nNarxi: ${formatPrice(price)} so'm\n\nBatafsil ma'lumot berishingizni so'rayman.`
@@ -313,7 +329,7 @@ export default function ProductDetails() {
             {targetKeyword && targetKeyword !== name && <p className="text-lg text-muted-foreground mb-2">{name}</p>}
             {description && <p className="text-muted-foreground mb-6">{description}</p>}
 
-            {price > 0 && (
+            {!isMaterialProduct && price > 0 && (
               <div className="flex items-center gap-3 mb-6 flex-wrap">
                 <div className="flex items-baseline gap-3">
                   <span className="font-serif text-3xl font-bold">{formatPrice(price)}</span>
@@ -400,73 +416,68 @@ export default function ProductDetails() {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex flex-col gap-3 mb-4 mt-8">
-              <Button
-                size="lg"
-                className="w-full gap-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                onClick={() => addItem(product as any, 1, selectedSize, selectedColor)}
-                disabled={inCart || !product.in_stock}
-              >
-                {inCart ? <Check className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
-                {inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : t.products.addToCart}
-              </Button>
-            </div>
-
-            <Button asChild variant="ghost" className="w-full gap-2 mb-4">
-              <a href="tel:+998901234567">
-                <Phone className="w-4 h-4" /> {t.products.requestConsultation}
-              </a>
-            </Button>
-
-            {/* Materials */}
-            {materials.length > 0 && (
-              <div className="mt-6 p-4 bg-muted rounded-xl">
-                <h4 className="font-medium mb-2">{t.products.materials}</h4>
-                <div className="flex flex-wrap gap-2">
-                  {materials.map(mat => (
-                    <span key={mat} className="px-3 py-1 bg-background rounded-full text-sm">{mat}</span>
-                  ))}
+            {/* Certificates (materials only) */}
+            {isMaterialProduct && Array.isArray((product as any).certificates) && (product as any).certificates.length > 0 && (
+              <div className="mt-8">
+                <h4 className="font-medium mb-3">
+                  {language === 'uz' ? 'Sertifikatlar' : 'Сертификаты'}
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(product as any).certificates.map((url: string, idx: number) => {
+                    const isPdf = url.toLowerCase().endsWith('.pdf');
+                    return (
+                      <a
+                        key={url + idx}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border overflow-hidden block hover:shadow-md transition-shadow"
+                      >
+                        {isPdf ? (
+                          <div className="aspect-square flex flex-col items-center justify-center gap-2 bg-muted/50">
+                            <FileText className="w-8 h-8 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">PDF</span>
+                          </div>
+                        ) : (
+                          <img
+                            src={url}
+                            alt={`${language === 'uz' ? 'Sertifikat' : 'Сертификат'} ${idx + 1}`}
+                            className="aspect-square w-full object-cover bg-card"
+                            onError={(e) => (e.currentTarget.src = '/placeholder.svg')}
+                          />
+                        )}
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
+            {!isMaterialProduct && (
+              <>
+                {/* Actions */}
+                <div className="flex flex-col gap-3 mb-4 mt-8">
+                  <Button
+                    size="lg"
+                    className="w-full gap-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                    onClick={() => addItem(product as any, 1, selectedSize, selectedColor)}
+                    disabled={inCart || !product.in_stock}
+                  >
+                    {inCart ? <Check className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+                    {inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : t.products.addToCart}
+                  </Button>
+                </div>
+
+                <Button asChild variant="ghost" className="w-full gap-2 mb-4">
+                  <a href="tel:+998901234567">
+                    <Phone className="w-4 h-4" /> {t.products.requestConsultation}
+                  </a>
+                </Button>
+              </>
+            )}
+
           </div>
         </div>
-
-        {/* Furniture / fittings — full-width section, below the image/info grid */}
-        {Array.isArray(product.furniture) && product.furniture.length > 0 && (
-          <div className="mt-12 rounded-2xl border overflow-hidden bg-card">
-            <div className="px-4 pt-4 pb-2">
-              <h4 className="font-medium">{language === 'uz' ? 'Furnituralar' : 'Фурнитура'}</h4>
-              <p className="text-xs text-muted-foreground">
-                {language === 'uz' ? 'Ushbu mahsulotda ishlatilgan furnitura' : 'Фурнитура, использованная в этом товаре'}
-              </p>
-            </div>
-            <div className={product.furniture.length > 4 ? 'grid grid-cols-1 sm:grid-cols-2' : 'divide-y'}>
-              {product.furniture.map((item, idx) => {
-                const useGrid = product.furniture.length > 4;
-                if (!useGrid) {
-                  return (
-                    <FurnitureCard key={item.id} item={item} language={language as 'uz' | 'ru'} quantity={item.quantity} variant="row" />
-                  );
-                }
-                const total = product.furniture.length;
-                const lastRowStart = total - (total % 2 === 0 ? 2 : 1);
-                const isLastRow = idx >= lastRowStart;
-                const hasRightNeighbor = idx % 2 === 0 && idx + 1 < total;
-                return (
-                  <div
-                    key={item.id}
-                    className={`border-b last:border-b-0 ${isLastRow ? 'sm:border-b-0' : ''} ${hasRightNeighbor ? 'sm:border-r' : ''}`}
-                  >
-                    <FurnitureCard item={item} language={language as 'uz' | 'ru'} quantity={item.quantity} variant="row" />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Description */}
         {(fullDescription || description) && (

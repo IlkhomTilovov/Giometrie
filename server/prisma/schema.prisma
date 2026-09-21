@@ -94,6 +94,7 @@ model Section {
   slug         String   @unique
   sortOrder    Int      @default(0) @map("sort_order")
   isActive     Boolean  @default(true) @map("is_active")
+  showInMainNav Boolean @default(true) @map("show_in_main_nav")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -149,6 +150,9 @@ model Product {
   price                  Float?
   originalPrice          Float?   @map("original_price")
   images                 String[] @default([])
+  // File URLs (image or PDF) for a material's quality/compliance certificates —
+  // only shown/edited for products in the standalone Materials section.
+  certificates           String[] @default([])
   materials              String[] @default([])
   materialsRu            String[] @default([]) @map("materials_ru")
   sizes                  String[] @default([])
@@ -190,6 +194,11 @@ model Product {
 
   category      Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   furnitureLinks ProductFurniture[]
+  // A product (e.g. a wardrobe) can be built out of other products that live in the
+  // "Materials" section (e.g. an LDSP panel) — materialLinks is the wardrobe's list of
+  // materials used; usedAsMaterialIn is the reverse (which products use this material).
+  materialLinks    ProductMaterial[] @relation("ProductMaterialUsage")
+  usedAsMaterialIn ProductMaterial[] @relation("ProductMaterialSource")
 
   @@index([categoryId])
   @@index([isActive, sortOrder])
@@ -270,6 +279,25 @@ model ProductFurniture {
   @@index([productId])
   @@index([furnitureId])
   @@map("product_furniture")
+}
+
+// ---------- Materials (products that are themselves used to build other products) ----------
+
+model ProductMaterial {
+  id         String   @id @default(uuid())
+  productId  String   @map("product_id")
+  materialId String   @map("material_id")
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  product  Product @relation("ProductMaterialUsage", fields: [productId], references: [id], onDelete: Cascade)
+  material Product @relation("ProductMaterialSource", fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, materialId])
+  @@index([productId])
+  @@index([materialId])
+  @@map("product_materials")
 }
 
 // ---------- Homepage / marketing content ----------

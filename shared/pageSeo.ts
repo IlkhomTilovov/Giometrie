@@ -10,7 +10,7 @@ export type PageSeo = {
   description: string;
 };
 
-export type PageKey = 'home' | 'catalog' | 'about' | 'contact' | 'faq';
+export type PageKey = 'home' | 'catalog' | 'materials' | 'about' | 'contact' | 'faq';
 
 const SEO: Record<PageKey, Record<Lang, PageSeo>> = {
   home: {
@@ -37,6 +37,18 @@ const SEO: Record<PageKey, Record<Lang, PageSeo>> = {
       title: 'Каталог — мебель и интерьер Giometrie',
       description:
         'Каталог Giometrie: диваны, кресла, столы, шкафы и другая премиальная мебель. Выбирайте по цене, размеру и фото.',
+    },
+  },
+  materials: {
+    uz: {
+      title: 'Furnitura va materiallar — Giometrie',
+      description:
+        "Giometrie furniturasi va qoplama materiallari: tortma mexanizmlari, teleskopik relslar, mebel ruchkalari, laminat, parket va boshqa interyer materiallari.",
+    },
+    ru: {
+      title: 'Фурнитура и материалы — Giometrie',
+      description:
+        'Фурнитура и отделочные материалы Giometrie: механизмы для ящиков, телескопические рельсы, мебельные ручки, ламинат, паркет и другие материалы для интерьера.',
     },
   },
   about: {

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { X, ShoppingBag, Phone, ChevronDown, ChevronRight, LayoutGrid, Tag, Sparkles, Search, Info, Shield, Send, Instagram } from 'lucide-react';
+import { X, ShoppingBag, Phone, ChevronDown, ChevronRight, LayoutGrid, Tag, Sparkles, Search, Info, Shield, Send, Instagram, Package } from 'lucide-react';
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,7 @@ export function Header() {
   const navLinks = [
     { href: '/', label: navLabels.home },
     { href: '/catalog', label: navLabels.catalog },
+    { href: '/materials', label: navLabels.materials },
     { href: '/about', label: navLabels.about },
     { href: '/contact', label: navLabels.contact },
   ];
@@ -281,11 +282,20 @@ export function Header() {
                   <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${mobileCatalogOpen ? 'rotate-180' : ''}`} />
                 </button>
 
+                <Link
+                  to="/materials"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-muted transition-colors text-[14.5px] font-medium text-foreground"
+                >
+                  <Package className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.75} />
+                  {navLabels.materials}
+                </Link>
+
                 {mobileCatalogOpen && (
                   <div className="ml-[26px] mt-1 mb-2 pl-4 border-l border-border/60">
                     {mobileSectionId === null ? (
                       <div className="flex flex-col">
-                        {sections.map((section) => {
+                        {sections.filter((section) => section.show_in_main_nav !== false).map((section) => {
                           const hasCats = categories.some((c) => !c.parent_id && c.section_id === section.id);
                           if (!hasCats) {
                             return (
@@ -427,7 +437,7 @@ export function Header() {
       {catalogOpen && createPortal(
         (() => {
           const displaySections = [
-            ...sections.map((s) => ({
+            ...sections.filter((s) => s.show_in_main_nav !== false).map((s) => ({
               id: s.id,
               name: language === 'ru' ? s.name_ru : s.name_uz,
               parents: categories.filter((c) => !c.parent_id && c.section_id === s.id),

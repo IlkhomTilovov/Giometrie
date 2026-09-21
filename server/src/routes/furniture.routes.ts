@@ -60,6 +60,20 @@ furnitureRouter.get(
   })
 );
 
+// Public catalog listing (src/pages/Materials.tsx "Furnitura" section) — only
+// active furniture, ordered the same way as the admin list.
+furnitureRouter.get(
+  '/public',
+  asyncHandler(async (_req, res) => {
+    const items = await prisma.furniture.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      include: { category: true },
+    });
+    res.json({ items });
+  })
+);
+
 furnitureRouter.get(
   '/admin',
   requireAuth,

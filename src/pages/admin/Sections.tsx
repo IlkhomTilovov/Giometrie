@@ -26,6 +26,7 @@ interface Section {
   slug: string;
   sort_order: number;
   is_active: boolean;
+  show_in_main_nav: boolean;
   created_at: string;
   updated_at: string;
   categories_count?: number;
@@ -36,6 +37,7 @@ interface FormData {
   slug: string;
   sort_order: number;
   is_active: boolean;
+  show_in_main_nav: boolean;
 }
 
 const initialFormData: FormData = {
@@ -43,6 +45,7 @@ const initialFormData: FormData = {
   slug: '',
   sort_order: 0,
   is_active: true,
+  show_in_main_nav: true,
 };
 
 export default function Sections() {
@@ -133,6 +136,7 @@ export default function Sections() {
       slug: section.slug,
       sort_order: section.sort_order,
       is_active: section.is_active,
+      show_in_main_nav: section.show_in_main_nav,
     });
     setSlugError('');
     setDialogOpen(true);
@@ -187,6 +191,7 @@ export default function Sections() {
         slug,
         sort_order: formData.sort_order,
         is_active: formData.is_active,
+        show_in_main_nav: formData.show_in_main_nav,
       };
 
       if (selectedSection) {
@@ -333,9 +338,14 @@ export default function Sections() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={section.is_active ? 'default' : 'secondary'}>
-                        {section.is_active ? t.sections.active : t.sections.inactive}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant={section.is_active ? 'default' : 'secondary'}>
+                          {section.is_active ? t.sections.active : t.sections.inactive}
+                        </Badge>
+                        {!section.show_in_main_nav && (
+                          <Badge variant="outline" className="font-normal">{t.sections.standalone}</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -425,6 +435,17 @@ export default function Sections() {
                 />
                 <Label>{t.sections.active}</Label>
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={formData.show_in_main_nav}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_in_main_nav: checked })}
+                />
+                <Label>{t.sections.showInMainNav}</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">{t.sections.showInMainNavHint}</p>
             </div>
           </div>
 
