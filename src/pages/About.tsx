@@ -27,7 +27,7 @@ export default function About() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section id="hero" className="relative h-[50vh] min-h-[400px] flex items-center">
+      <section id="hero" className="relative h-[70vh] min-h-[560px] flex items-center">
         <div className="absolute inset-0 z-0">
           <EditableImage
             contentKey="about_hero_image"
@@ -53,9 +53,9 @@ export default function About() {
           <p className="text-primary-foreground/80 text-lg max-w-2xl mx-auto">
             <EditableText 
               contentKey="about_subtitle" 
-              fallback={language === 'uz' 
-                ? "10 yildan ortiq tajriba bilan Toshkentning eng yaxshi mebel ishlab chiqaruvchilaridan biri"
-                : "Один из лучших производителей мебели в Ташкенте с более чем 10-летним опытом"
+              fallback={language === 'uz'
+                ? "Har bir mijoz uchun individual loyiha — mebel na zakaz, sizning o'lchamingiz va didingizga mos"
+                : "Индивидуальный проект для каждого клиента — мебель на заказ, под ваши размеры и вкус"
               }
               as="span"
               className="text-lg"
@@ -128,8 +128,8 @@ export default function About() {
                 <EditableText 
                   contentKey="about_story_text_2" 
                   fallback={language === 'uz'
-                    ? "Biz kichik ustaxonadan boshlab, bugungi kunda zamonaviy ishlab chiqarish liniyalariga ega katta korxonaga aylandik. Har bir mahsulotimizda sifat va ehtiyotkorlik aks etadi."
-                    : "Мы начинали с небольшой мастерской и сегодня превратились в крупное предприятие с современными производственными линиями. В каждом нашем изделии отражается качество и забота."
+                    ? "Bizda tayyor andozalar yo'q. Har bir buyurtma mijozning xonasi o'lchamlari, rangi va uslubidan kelib chiqib alohida loyihalanadi va shu asosda ishlab chiqariladi — natijada aynan sizga mos mebel yaratiladi."
+                    : "У нас нет типовых шаблонов. Каждый заказ проектируется индивидуально — с учётом размеров комнаты, цвета и стиля клиента, и уже на этой основе изготавливается мебель, подходящая именно вам."
                   }
                   as="span"
                   multiline
@@ -220,9 +220,9 @@ export default function About() {
           </h2>
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { step: '01', titleKey: 'about_process_1_title', descKey: 'about_process_1_desc', title: language === 'uz' ? 'Konsultatsiya' : 'Консультация', desc: language === 'uz' ? "Sizning talablaringizni o'rganamiz" : 'Изучаем ваши требования' },
-              { step: '02', titleKey: 'about_process_2_title', descKey: 'about_process_2_desc', title: language === 'uz' ? 'Dizayn' : 'Дизайн', desc: language === 'uz' ? '3D loyiha tayyorlaymiz' : 'Готовим 3D проект' },
-              { step: '03', titleKey: 'about_process_3_title', descKey: 'about_process_3_desc', title: language === 'uz' ? 'Ishlab chiqarish' : 'Производство', desc: language === 'uz' ? 'Sifatli materiallardan yasaymiz' : 'Изготавливаем из качественных материалов' },
+              { step: '01', titleKey: 'about_process_1_title', descKey: 'about_process_1_desc', title: language === 'uz' ? 'Konsultatsiya' : 'Консультация', desc: language === 'uz' ? "Xonangiz o'lchamlari va istaklaringizni o'rganamiz" : 'Изучаем размеры вашей комнаты и пожелания' },
+              { step: '02', titleKey: 'about_process_2_title', descKey: 'about_process_2_desc', title: language === 'uz' ? 'Dizayn' : 'Дизайн', desc: language === 'uz' ? 'Sizga mos individual 3D loyiha tayyorlaymiz' : 'Готовим индивидуальный 3D проект под вас' },
+              { step: '03', titleKey: 'about_process_3_title', descKey: 'about_process_3_desc', title: language === 'uz' ? 'Ishlab chiqarish' : 'Производство', desc: language === 'uz' ? "Loyiha bo'yicha sifatli materiallardan buyurtmangizni tayyorlaymiz" : 'Изготавливаем ваш заказ по проекту из качественных материалов' },
               { step: '04', titleKey: 'about_process_4_title', descKey: 'about_process_4_desc', title: language === 'uz' ? 'Yetkazib berish' : 'Доставка', desc: language === 'uz' ? "O'rnatib beramiz" : 'Доставляем и устанавливаем' },
             ].map((item, i) => (
               <div key={i} className="text-center p-6">

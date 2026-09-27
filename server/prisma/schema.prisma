@@ -328,6 +328,7 @@ model PromoTile {
   icon      String   @default("")
   bgClass   String   @default("") @map("bg_class")
   textClass String   @default("") @map("text_class")
+  image     String?
   href      String   @default("")
   sortOrder Int      @default(0) @map("sort_order")
   isActive  Boolean  @default(true) @map("is_active")

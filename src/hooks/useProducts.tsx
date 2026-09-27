@@ -98,6 +98,7 @@ export interface ProductFilters {
   search?: string;
   categoryId?: string;
   categoryIds?: string[];
+  excludeCategoryIds?: string[];
   priceMin?: number;
   priceMax?: number;
   materials?: string[];
@@ -246,6 +247,7 @@ export function useProducts(
         search: filters.search,
         categoryId: filters.categoryId && filters.categoryId !== 'all' ? filters.categoryId : undefined,
         categoryIds: filters.categoryIds,
+        excludeCategoryIds: filters.excludeCategoryIds,
         priceMin: filters.priceMin,
         priceMax: filters.priceMax,
         materials: filters.materials,

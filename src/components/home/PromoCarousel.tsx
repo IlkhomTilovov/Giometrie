@@ -99,36 +99,49 @@ export function PromoCarousel({
           {tiles.map((tile) => {
             const Icon = ICONS[tile.icon] || Sparkles;
             const title = language === 'uz' ? tile.title_uz : tile.title_ru;
+            const hasImage = !!tile.image;
+            const textClass = hasImage ? 'text-white' : tile.text_class;
             return (
               <Link
                 key={tile.id}
                 to={`/catalog?promo=${tile.id}`}
-                className={`group relative shrink-0 basis-[46%] sm:basis-[32%] lg:basis-[19%] aspect-[4/5] rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden shadow-soft hover:shadow-soft-lg transition-all duration-500 ease-luxe hover:-translate-y-1.5 ${tile.bg_class}`}
+                className={`group relative shrink-0 basis-[46%] sm:basis-[32%] lg:basis-[19%] aspect-[4/5] rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden shadow-soft hover:shadow-soft-lg transition-all duration-500 ease-luxe hover:-translate-y-1.5 ${hasImage ? '' : tile.bg_class}`}
               >
-                {/* Katta shaffof ikonka — fon naqshi */}
-                <Icon
-                  className={`absolute -bottom-6 -right-5 w-32 h-32 lg:w-44 lg:h-44 ${tile.text_class} opacity-[0.08] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-700 ease-luxe`}
-                  strokeWidth={1}
-                />
+                {hasImage ? (
+                  <>
+                    <img
+                      src={tile.image as string}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/5" />
+                  </>
+                ) : (
+                  /* Katta shaffof ikonka — fon naqshi */
+                  <Icon
+                    className={`absolute -bottom-6 -right-5 w-32 h-32 lg:w-44 lg:h-44 ${tile.text_class} opacity-[0.08] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-700 ease-luxe`}
+                    strokeWidth={1}
+                  />
+                )}
                 <div className="relative h-full p-4 lg:p-6 flex flex-col justify-between">
                   <div className="flex items-start justify-between gap-2">
                     <span
-                      className={`w-9 h-9 lg:w-11 lg:h-11 rounded-full border border-current/20 bg-background/25 flex items-center justify-center ${tile.text_class}`}
+                      className={`w-9 h-9 lg:w-11 lg:h-11 rounded-full border border-current/20 bg-background/25 flex items-center justify-center ${textClass}`}
                     >
                       <Icon className="w-4 h-4 lg:w-5 lg:h-5" strokeWidth={1.75} />
                     </span>
                     <ArrowUpRight
-                      className={`w-4 h-4 shrink-0 opacity-60 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ${tile.text_class}`}
+                      className={`w-4 h-4 shrink-0 opacity-60 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ${textClass}`}
                     />
                   </div>
                   <div>
                     <h3
-                      className={`font-sans font-semibold text-sm lg:text-lg leading-snug ${tile.text_class}`}
+                      className={`font-sans font-semibold text-sm lg:text-lg leading-snug ${textClass}`}
                     >
                       {title}
                     </h3>
                     <span
-                      className={`mt-1.5 block text-[10px] lg:text-xs uppercase tracking-[0.18em] opacity-60 ${tile.text_class}`}
+                      className={`mt-1.5 block text-[10px] lg:text-xs uppercase tracking-[0.18em] opacity-60 ${textClass}`}
                     >
                       {language === 'uz' ? "Ko'rish" : 'Смотреть'}
                     </span>

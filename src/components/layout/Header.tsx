@@ -79,7 +79,6 @@ export function Header() {
 
 
   const navLinks = [
-    { href: '/', label: navLabels.home },
     { href: '/catalog', label: navLabels.catalog },
     { href: '/materials', label: navLabels.materials },
     { href: '/about', label: navLabels.about },

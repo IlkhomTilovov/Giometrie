@@ -8,6 +8,7 @@ export interface PromoTile {
   icon: string;
   bg_class: string;
   text_class: string;
+  image: string | null;
   href: string;
   sort_order: number;
   is_active: boolean;
@@ -21,6 +22,7 @@ function mapTile(t: any): PromoTile {
     icon: t.icon,
     bg_class: t.bgClass,
     text_class: t.textClass,
+    image: t.image ?? null,
     href: t.href,
     sort_order: t.sortOrder,
     is_active: t.isActive,

@@ -110,6 +110,7 @@ export async function sendTestMessage(): Promise<void> {
 
 export async function sendOrderNotification(orderData: TelegramOrderData): Promise<void> {
   const settings = await requireValidBotToken();
+  if (!settings.enabled) throw new ApiError(400, 'Telegram xabarlari yoqilmagan');
   if (!settings.chatId) throw new ApiError(400, 'Chat ID sozlanmagan');
 
   await tgApi(settings.botToken, 'sendMessage', {

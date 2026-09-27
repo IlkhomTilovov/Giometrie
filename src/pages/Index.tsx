@@ -17,7 +17,7 @@ import { PromoCarousel } from '@/components/home/PromoCarousel';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { getPageSeo } from '@/lib/pageSeo';
 import { PROMO_ICONS } from '@/lib/promoIcons';
-import { CollectionBanners, DiscountBanner, InspirationSection, FeatureStrip } from '@/components/home/HomeSections';
+import { DiscountBanner, FeatureStrip } from '@/components/home/HomeSections';
 
 
 const HOME_PROMO_ICONS: Record<string, LucideIcon> = PROMO_ICONS;
@@ -306,16 +306,6 @@ export default function Index() {
       </div>
 
 
-      {/* ============ KOLLEKSIYA BANNERLARI ============ */}
-      <CollectionBanners
-        categories={cats as any}
-        loading={!categoriesLoaded}
-        language={language}
-      />
-
-
-
-
       <section ref={sec2.ref} className="container mx-auto px-4 lg:px-8 mt-16 lg:mt-24">
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -481,9 +471,6 @@ export default function Index() {
           </div>
         </section>
       )}
-
-      {/* ============ ILHOM (to'plamlar) ============ */}
-      <InspirationSection sets={sets} loading={!shouldLoadBelowFoldData || setsLoading} language={language} />
 
       {/* ============ ISHONCH BELGILARI (yetkazib berish/qaytarish/kafolat/qo'llab-quvvatlash) ============ */}
       <FeatureStrip language={language} />

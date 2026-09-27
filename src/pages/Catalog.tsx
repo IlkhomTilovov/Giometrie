@@ -66,6 +66,20 @@ export default function Catalog() {
   const selectedSection = useMemo(() => sections.find(s => s.id === resolvedSectionId), [resolvedSectionId, sections]);
   const sectionName = selectedSection ? catName(selectedSection) : null;
 
+  // The standalone "Furnitura va materiallar" section lives only on its own /materials
+  // page (see Materials.tsx) — its products must never surface in the general catalog.
+  const standaloneSection = useMemo(() => sections.find(s => s.show_in_main_nav === false), [sections]);
+  const standaloneCategoryIds = useMemo(() => {
+    if (!standaloneSection) return [] as string[];
+    const ids = new Set<string>();
+    const walk = (id: string) => {
+      ids.add(id);
+      categories.filter(c => c.parent_id === id).forEach(child => walk(child.id));
+    };
+    categories.filter(c => c.section_id === standaloneSection.id).forEach(c => walk(c.id));
+    return Array.from(ids);
+  }, [standaloneSection, categories]);
+
   // All category IDs belonging to the selected section (including descendants)
   const sectionCategoryIds = useMemo(() => {
     if (!resolvedSectionId) return [];
@@ -175,9 +189,10 @@ export default function Catalog() {
     if (sidebarFilters.inStock) f.inStock = true;
     if (sidebarFilters.discounted || discountedParam) f.discounted = true;
     if (promoTileId) f.promoTileId = promoTileId;
+    if (standaloneCategoryIds.length > 0) f.excludeCategoryIds = standaloneCategoryIds;
 
     return f;
-  }, [debouncedSearch, sidebarFilters, filterOptions.maxPrice, promoTileId, discountedParam, setId, setProductIds, priceTouched, categories, resolvedSectionId, sectionCategoryIds]);
+  }, [debouncedSearch, sidebarFilters, filterOptions.maxPrice, promoTileId, discountedParam, setId, setProductIds, priceTouched, categories, resolvedSectionId, sectionCategoryIds, standaloneCategoryIds]);
 
 
   const { products, totalCount, totalPages, loading: productsLoading } = useProducts(currentPage, filters, PAGE_SIZE);

@@ -1,10 +1,9 @@
 import { useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Check, Heart, ChevronRight, ShoppingCart } from 'lucide-react';
+import { Plus, Check, ChevronRight, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCart } from '@/hooks/useCart';
-import { useWishlist } from '@/hooks/useWishlist';
 import { LazyImage } from '@/components/LazyImage';
 import { getAttributeIcon } from '@/lib/attributeIcons';
 import type { Product } from '@/hooks/useProducts';
@@ -39,10 +38,8 @@ interface ProductCardProps {
 export function ProductCard({ product, eager = false, imageAspect = 'aspect-square', imageFit = 'cover', compact = false, variant = 'default', isMaterial = false }: ProductCardProps) {
   const { language, t } = useLanguage();
   const { addItem, isInCart } = useCart();
-  const { toggle: toggleWishlist, isWishlisted } = useWishlist();
   const [imgIndex, setImgIndex] = useState(0);
   const inCart = isInCart(product.id);
-  const wishlisted = isWishlisted(product.id);
 
   // Loose union type (see ProductCardProps) doesn't declare these extra fields on its
   // second, ad-hoc-object branch — same escape hatch the original code already used for
@@ -63,8 +60,8 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
   const discountPct = hasDiscount ? Math.round((1 - price / (originalPrice as number)) * 100) : 0;
 
   // Dense/compact contexts (home page "Tanlangan mahsulotlar" grid, hero pairs carousel)
-  // keep today's tight layout — only the name and wishlist button are added there. The
-  // richer description/specs/furniture/"Batafsil ko'rish" block is reserved for the
+  // keep today's tight layout — only the name is added there. The richer
+  // description/specs/furniture/"Batafsil ko'rish" block is reserved for the
   // regular catalog + "o'xshash mahsulotlar" grids so those dense rows don't grow taller.
   const showRich = variant !== 'grid' && !compact;
 
@@ -116,22 +113,6 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
             −{discountPct}%
           </span>
         )}
-
-        {/* Wishlist toggle — inside the image Link, so it must stop the click from
-            also triggering navigation. */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleWishlist(product.id);
-          }}
-          aria-label={language === 'uz' ? 'Sevimlilarga qo\'shish' : 'Добавить в избранное'}
-          aria-pressed={wishlisted}
-          className={`absolute right-2 ${compact ? 'top-2' : 'top-3'} flex items-center justify-center w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm shadow-soft-sm text-foreground hover:bg-background transition-colors`}
-        >
-          <Heart className={`w-4 h-4 transition-colors ${wishlisted ? 'fill-red-500 text-red-500' : ''}`} />
-        </button>
 
         {/* Image counter + dots — only when there's more than one real image to browse */}
         {showRich && images.length > 1 && (

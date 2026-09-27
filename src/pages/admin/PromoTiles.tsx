@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
-import { apiPost, apiPatch, apiDelete } from '@/integrations/api/client';
+import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, X } from 'lucide-react';
+import { apiPost, apiPatch, apiDelete, apiUpload } from '@/integrations/api/client';
 import { toCamelCase } from '@/lib/caseConvert';
+import { convertImageToWebP } from '@/lib/imageToWebp';
 import { useAllPromoTiles, type PromoTile } from '@/hooks/usePromoTiles';
 import { useAdminT } from '@/hooks/useAdminT';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -27,6 +28,7 @@ const emptyForm: Omit<PromoTile, 'id'> = {
   icon: 'Sparkles',
   bg_class: 'bg-[#D4EDE0]',
   text_class: 'text-foreground',
+  image: null,
   href: '/catalog',
   sort_order: 0,
   is_active: true,
@@ -40,6 +42,40 @@ export default function PromoTilesAdmin() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PromoTile | null>(null);
   const [form, setForm] = useState<Omit<PromoTile, 'id'>>(emptyForm);
+  const [imageUploading, setImageUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (file: File) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(language === 'ru' ? 'Недопустимый формат изображения' : "Rasm formati noto'g'ri");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(language === 'ru' ? 'Изображение слишком большое (макс. 5МБ)' : "Rasm hajmi juda katta (maks. 5MB)");
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      const uploadFile = await convertImageToWebP(file);
+      const fileExt = uploadFile.name.split('.').pop();
+      const filePath = `promo-tiles/promo-${Date.now()}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('path', filePath);
+      const { url } = await apiUpload<{ url: string }>('/api/uploads', formData);
+
+      setForm((prev) => ({ ...prev, image: url }));
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const removeImage = () => setForm((prev) => ({ ...prev, image: null }));
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['promo_tiles'] });
@@ -132,9 +168,15 @@ export default function PromoTilesAdmin() {
             const Icon = PROMO_ICONS[tile.icon] || PROMO_ICONS.Sparkles;
             return (
               <Card key={tile.id} className={cn('p-0 overflow-hidden', !tile.is_active && 'opacity-60')}>
-                <div className={cn('aspect-[16/10] p-5 flex flex-col justify-between', tile.bg_class)}>
-                  <h3 className={cn('font-semibold text-sm leading-tight', tile.text_class)}>{tileTitle(tile)}</h3>
-                  <Icon className={cn('w-14 h-14 self-end', tile.text_class)} strokeWidth={1.5} />
+                <div className={cn('relative aspect-[16/10] p-5 flex flex-col justify-between', !tile.image && tile.bg_class)}>
+                  {tile.image && (
+                    <>
+                      <img src={tile.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    </>
+                  )}
+                  <h3 className={cn('relative font-semibold text-sm leading-tight', tile.image ? 'text-white' : tile.text_class)}>{tileTitle(tile)}</h3>
+                  {!tile.image && <Icon className={cn('w-14 h-14 self-end', tile.text_class)} strokeWidth={1.5} />}
                 </div>
                 <div className="p-3 space-y-2">
                   <div className="text-xs text-muted-foreground truncate">
@@ -186,6 +228,53 @@ export default function PromoTilesAdmin() {
             <div>
               <Label>{t.promo.link}</Label>
               <Input value={form.href} onChange={e => setForm({ ...form, href: e.target.value })} placeholder="/catalog?filter=hit" />
+            </div>
+
+            <div>
+              <Label className="mb-2 block">{language === 'ru' ? 'Изображение (необязательно)' : 'Rasm (ixtiyoriy)'}</Label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                  e.target.value = '';
+                }}
+              />
+              {form.image ? (
+                <div className="relative inline-block">
+                  <img
+                    src={form.image}
+                    alt="Preview"
+                    width={128}
+                    height={80}
+                    className="h-20 w-32 object-cover rounded-lg border"
+                    onError={(e) => (e.currentTarget.src = '/placeholder.svg')}
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                    onClick={removeImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <Button type="button" variant="outline" size="sm" disabled={imageUploading} onClick={() => fileInputRef.current?.click()}>
+                  {imageUploading
+                    ? (language === 'ru' ? 'Загрузка...' : 'Yuklanmoqda...')
+                    : (language === 'ru' ? 'Загрузить изображение' : 'Rasm yuklash')}
+                </Button>
+              )}
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {language === 'ru'
+                  ? 'Если загружено — заменит цветной фон и иконку на карточке.'
+                  : "Yuklansa — kartochkadagi rangli fon va ikonka o'rniga ishlatiladi."}
+              </p>
             </div>
 
             <div>
@@ -241,11 +330,17 @@ export default function PromoTilesAdmin() {
             {/* Preview */}
             <div>
               <Label className="mb-2 block">{t.promo.preview}</Label>
-              <div className={cn('aspect-[16/10] max-w-xs rounded-2xl p-5 flex flex-col justify-between', form.bg_class)}>
-                <h3 className={cn('font-semibold text-sm', form.text_class)}>
+              <div className={cn('relative aspect-[16/10] max-w-xs rounded-2xl p-5 flex flex-col justify-between overflow-hidden', !form.image && form.bg_class)}>
+                {form.image && (
+                  <>
+                    <img src={form.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                  </>
+                )}
+                <h3 className={cn('relative font-semibold text-sm', form.image ? 'text-white' : form.text_class)}>
                   {(language === 'ru' ? form.title_ru : form.title_uz) || t.promo.titlePlaceholder}
                 </h3>
-                {(() => {
+                {!form.image && (() => {
                   const I = PROMO_ICONS[form.icon] || PROMO_ICONS.Sparkles;
                   return <I className={cn('w-14 h-14 self-end', form.text_class)} strokeWidth={1.5} />;
                 })()}

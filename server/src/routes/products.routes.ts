@@ -187,6 +187,7 @@ productsRouter.get(
     const furLengths = toArray(q.furLengths);
     const applications = toArray(q.applications);
     const categoryIds = toArray(q.categoryIds);
+    const excludeCategoryIds = toArray(q.excludeCategoryIds);
     const productIds = toArray(q.productIds);
     const priceMin = toNumber(q.priceMin);
     const priceMax = toNumber(q.priceMax);
@@ -213,6 +214,9 @@ productsRouter.get(
 
     if (q.categoryId && typeof q.categoryId === 'string') where.categoryId = q.categoryId;
     if (categoryIds?.length) where.categoryId = { in: categoryIds };
+    if (excludeCategoryIds?.length) {
+      and.push({ OR: [{ categoryId: null }, { categoryId: { notIn: excludeCategoryIds } }] });
+    }
     if (productIds?.length) where.id = { in: productIds };
     // Price filters include products with no price set (e.g. negotiable-price items),
     // matching the original PostgREST `.or(price.gte.X,price.is.null)` behavior.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiGet } from '@/integrations/api/client';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Truck, RotateCcw, ShieldCheck, Headphones } from 'lucide-react';
+import { ArrowRight, Truck, Clock, ShieldCheck, Headphones } from 'lucide-react';
 import { LazyImage } from '@/components/LazyImage';
 import { Button } from '@/components/ui/button';
 import { getTranslated } from '@shared/translate';
@@ -281,9 +281,9 @@ export function FeatureStrip({ language }: { language: Lang }) {
       text: language === 'uz' ? 'Toshkent bo‘ylab' : 'По Ташкенту',
     },
     {
-      Icon: RotateCcw,
-      title: language === 'uz' ? 'Qulay qaytarish' : 'Удобный возврат',
-      text: language === 'uz' ? '14 kun ichida' : 'В течение 14 дней',
+      Icon: Clock,
+      title: language === 'uz' ? '24/7 Online buyurtma' : 'Онлайн-заказ 24/7',
+      text: language === 'uz' ? 'Istalgan vaqtda' : 'В любое время',
     },
     {
       Icon: ShieldCheck,

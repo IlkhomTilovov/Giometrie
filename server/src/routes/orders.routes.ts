@@ -102,20 +102,32 @@ ordersRouter.post(
       return created;
     });
 
-    // Fire-and-forget: amoCRM lead creation must never slow down or fail the checkout response.
+    // Fire-and-forget: amoCRM lead creation and the Telegram group notification must
+    // never slow down or fail the checkout response.
+    const notificationItems = orderItemsData.map((i) => ({
+      product_name: i.productNameSnapshot,
+      quantity: i.quantity,
+      price: i.priceSnapshot,
+      selected_options: i.selectedOptions as { size?: string; color?: string } | undefined,
+    }));
+
     createAmoLead('order', {
       order_number: order.orderNumber,
       customer_name: order.customerName,
       customer_phone: order.customerPhone,
       customer_message: order.customerMessage ?? undefined,
       total_price: totalPrice,
-      items: orderItemsData.map((i) => ({
-        product_name: i.productNameSnapshot,
-        quantity: i.quantity,
-        price: i.priceSnapshot,
-        selected_options: i.selectedOptions as { size?: string; color?: string } | undefined,
-      })),
+      items: notificationItems,
     }).catch((err) => console.error('AmoCRM lead creation failed (non-blocking):', err));
+
+    sendOrderNotification({
+      order_number: order.orderNumber,
+      customer_name: order.customerName,
+      customer_phone: order.customerPhone,
+      customer_message: order.customerMessage ?? undefined,
+      total_price: totalPrice,
+      items: notificationItems,
+    }).catch((err) => console.error('Telegram notification failed (non-blocking):', err));
 
     res.json({ success: true, order_number: order.orderNumber, total_price: totalPrice });
   })
