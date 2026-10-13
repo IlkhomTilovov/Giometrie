@@ -9,6 +9,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useSEO } from '@/hooks/useSEO';
 import { getPageSeo } from '@/lib/pageSeo';
 import { getTranslated } from '@shared/translate';
+import { EditableText } from '@/components/EditableText';
 
 const PAGE_SIZE = 24;
 const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000';
@@ -134,13 +135,33 @@ export default function Materials() {
       <div className="text-center py-6 lg:py-8 mb-10 lg:mb-14">
         <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground mb-2">
           <Package className="w-3.5 h-3.5" />
-          Giometrie
+          <EditableText
+            contentKey="materials_eyebrow"
+            fallback="Giometrie"
+            as="span"
+            section="materials"
+            field="eyebrow"
+          />
         </span>
         <h1 className="font-serif text-2xl lg:text-4xl font-bold text-foreground">
-          {sectionName ? `${language === 'ru' ? 'Фурнитура и' : 'Furnitura va'} ${sectionName.toLowerCase()}` : pageSeo.title}
+          <EditableText
+            contentKey="materials_title"
+            fallback={sectionName ? `${language === 'ru' ? 'Фурнитура и' : 'Furnitura va'} ${sectionName.toLowerCase()}` : pageSeo.title}
+            as="span"
+            className="font-serif text-2xl lg:text-4xl font-bold"
+            section="materials"
+            field="title"
+          />
         </h1>
         <p className="mt-3 text-sm lg:text-base text-muted-foreground max-w-2xl mx-auto">
-          {pageSeo.description}
+          <EditableText
+            contentKey="materials_description"
+            fallback={pageSeo.description}
+            as="span"
+            className="text-sm lg:text-base"
+            section="materials"
+            field="description"
+          />
         </p>
       </div>
 
