@@ -4,6 +4,8 @@ import { Home, ShoppingBag, Phone, Menu, LayoutGrid } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { resolveContactPhone } from '@/lib/contactPhone';
 
 type NavItem = {
   to?: string;
@@ -11,20 +13,22 @@ type NavItem = {
   icon?: LucideIcon;
   image?: string;
   isCart?: boolean;
-  action?: 'open-menu';
+  action?: 'open-menu' | 'call';
 };
 
 const items: NavItem[] = [
   { to: '/', icon: Home, label: { uz: 'Asosiy', ru: 'Главная' } },
   { to: '/catalog', icon: LayoutGrid, label: { uz: 'Katalog', ru: 'Каталог' } },
   { to: '/cart', icon: ShoppingBag, label: { uz: 'Savat', ru: 'Корзина' }, isCart: true },
-  { to: '/contact', icon: Phone, label: { uz: 'Aloqa', ru: 'Контакты' } },
+  { icon: Phone, label: { uz: "Qo'ng'iroq", ru: 'Позвонить' }, action: 'call' },
   { icon: Menu, label: { uz: 'Menyu', ru: 'Меню' }, action: 'open-menu' },
 ];
 
 export function MobileBottomNav() {
   const { totalItems } = useCart();
   const { language } = useLanguage();
+  const { settings } = useSystemSettings();
+  const contactPhone = resolveContactPhone(settings?.contact_phone);
   const location = useLocation();
 
   return (
@@ -35,7 +39,7 @@ export function MobileBottomNav() {
       <nav className="pointer-events-auto mx-auto max-w-md rounded-full bg-background shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] ring-1 ring-border px-2 py-2 flex items-center justify-between">
         {items.map((item, idx) => {
           const { to, icon: Icon, image, label, isCart, action } = item;
-          const labelText = label[language];
+          const labelText = language === 'ru' ? label.ru : label.uz;
           const active = to
             ? to === '/'
               ? location.pathname === '/'
@@ -90,8 +94,16 @@ export function MobileBottomNav() {
             );
           }
 
+          if (action === 'call') {
+            return (
+              <a key={idx} href={contactPhone.href} aria-label={`${labelText}: ${contactPhone.display}`} title={labelText} className={classes}>
+                {content}
+              </a>
+            );
+          }
+
           return (
-            <NavLink key={idx} to={to!} className={classes}>
+            <NavLink key={idx} to={to!} aria-label={labelText} className={classes}>
               {content}
             </NavLink>
           );
