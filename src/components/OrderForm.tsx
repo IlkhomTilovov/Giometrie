@@ -18,6 +18,9 @@ import { useCart } from '@/hooks/useCart';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { apiPost } from '@/integrations/api/client';
 import { z } from 'zod';
+import { OrderPricingNote } from '@/components/OrderPricingNote';
+import { getPricingCopy } from '@/lib/pricingCopy';
+import { hasFixedPrice } from '@shared/pricing';
 
 const orderSchema = z.object({
   name: z.string().trim().min(2, 'Ism kamida 2 ta belgidan iborat bo\'lishi kerak').max(100),
@@ -40,7 +43,8 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { language } = useLanguage();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, requiresQuote } = useCart();
+  const pricingCopy = getPricingCopy(language);
   const isMobile = useIsMobile();
 
   const t = {
@@ -78,7 +82,8 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
     },
   };
 
-  const text = t[language];
+  const text = t[language] || t.uz;
+  const title = requiresQuote ? pricingCopy.requestTitle : text.title;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +103,7 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
 
     if (items.length === 0) {
       toast({
-        title: 'Savat bo\'sh',
+        title: language === 'ru' ? 'Образцы пока не выбраны' : 'Hali namuna tanlanmagan',
         description: 'Iltimos, mahsulot qo\'shing',
         variant: 'destructive',
       });
@@ -117,7 +122,7 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
         },
       }));
 
-      await apiPost('/api/orders', {
+      const orderResult = await apiPost<{ price_on_request?: boolean }>('/api/orders', {
         customer_name: formData.name.trim(),
         customer_phone: formData.phone.replace(/\s/g, ''),
         customer_message: formData.message || undefined,
@@ -126,7 +131,8 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
 
       toast({
         title: language === 'uz' ? 'Muvaffaqiyat!' : 'Успешно!',
-        description: text.success,
+        description: (typeof orderResult.price_on_request === 'boolean' ? orderResult.price_on_request : requiresQuote)
+          ? pricingCopy.requestSent : text.success,
       });
 
       clearCart();
@@ -145,7 +151,8 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' so\'m';
+    return new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'uz-UZ').format(price)
+      + (language === 'ru' ? ' сум' : ' so‘m');
   };
 
   const summary = (
@@ -155,7 +162,7 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
           <span className="text-muted-foreground line-clamp-1">
             {language === 'uz' ? item.product.name_uz : item.product.name_ru} × {item.quantity}
           </span>
-          <span className="whitespace-nowrap tabular-nums">{formatPrice(item.product.price * item.quantity)}</span>
+          <span className="text-right tabular-nums">{hasFixedPrice(item.product.price) ? formatPrice(item.product.price * item.quantity) : pricingCopy.priceOnRequest}</span>
         </div>
       ))}
       {items.length > 3 && (
@@ -163,8 +170,9 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
       )}
       <div className="border-t border-border pt-2 flex justify-between items-baseline">
         <span className="text-sm font-medium">{text.total}</span>
-        <span className="font-serif text-lg font-bold tabular-nums">{formatPrice(totalPrice)}</span>
+        <span className="font-serif text-lg font-bold tabular-nums text-right">{requiresQuote ? pricingCopy.priceOnRequest : formatPrice(totalPrice)}</span>
       </div>
+      <OrderPricingNote requiresQuote={requiresQuote} totalPrice={totalPrice} language={language} currency={language === 'ru' ? 'сум' : 'so‘m'} />
     </div>
   );
 
@@ -228,7 +236,7 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
       ) : (
         <>
           <Send className="h-4 w-4" />
-          {text.submit}
+          {requiresQuote ? pricingCopy.requestQuote : text.submit}
         </>
       )}
     </Button>
@@ -245,7 +253,7 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
             {/* Grabber + header */}
             <div className="flex-shrink-0 px-5 pt-3 pb-4 border-b border-border">
               <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted-foreground/25" />
-              <h2 className="font-serif text-xl font-bold text-center">{text.title}</h2>
+              <h2 className="font-serif text-xl font-bold text-center">{title}</h2>
               <p className="mt-1 text-xs text-muted-foreground text-center">{text.description}</p>
             </div>
 
@@ -275,7 +283,7 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{text.title}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text.description}</DialogDescription>
         </DialogHeader>
 

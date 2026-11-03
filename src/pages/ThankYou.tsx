@@ -3,12 +3,15 @@ import { CheckCircle, Home, ShoppingBag, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { getPricingCopy } from '@/lib/pricingCopy';
 
 export default function ThankYou() {
   const location = useLocation();
   const { language } = useLanguage();
   const { settings } = useSystemSettings();
   const orderNumber = location.state?.orderNumber;
+  const requiresQuote = location.state?.requiresQuote === true;
+  const pricingCopy = getPricingCopy(language);
 
   const contactPhone = settings?.contact_phone || '';
 
@@ -27,7 +30,7 @@ export default function ThankYou() {
 
         {/* Subtitle */}
         <p className="text-xl text-muted-foreground mb-2">
-          {language === 'uz' 
+          {requiresQuote ? pricingCopy.requestSent : language === 'uz'
             ? 'Buyurtmangiz qabul qilindi' 
             : 'Ваш заказ принят'}
         </p>
@@ -35,7 +38,9 @@ export default function ThankYou() {
         {/* Order Number */}
         {orderNumber && (
           <p className="text-sm text-muted-foreground mb-6">
-            {language === 'uz' ? 'Buyurtma raqami' : 'Номер заказа'}: 
+            {requiresQuote
+              ? (language === 'ru' ? 'Номер запроса' : 'So‘rov raqami')
+              : (language === 'uz' ? 'Buyurtma raqami' : 'Номер заказа')}:
             <span className="font-semibold text-foreground ml-1">{orderNumber}</span>
           </p>
         )}
@@ -43,7 +48,11 @@ export default function ThankYou() {
         {/* Info Card */}
         <div className="bg-muted/50 rounded-2xl p-6 mb-8">
           <p className="text-muted-foreground leading-relaxed">
-            {language === 'uz' 
+            {requiresQuote
+              ? (language === 'ru'
+                ? 'Обсудим размеры, материалы и проект, чтобы подготовить расчёт.'
+                : 'Hisob-kitobni tayyorlash uchun o‘lcham, material va loyihani muhokama qilamiz.')
+              : language === 'uz'
               ? 'Bizning mutaxassislarimiz tez orada siz bilan bog\'lanishadi va buyurtmangiz bo\'yicha barcha tafsilotlarni aniqlashtiradi.' 
               : 'Наши специалисты свяжутся с вами в ближайшее время и уточнят все детали вашего заказа.'}
           </p>

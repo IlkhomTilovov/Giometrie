@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { X, ShoppingBag, Phone, ChevronDown, ChevronRight, LayoutGrid, Tag, Sparkles, Search, Info, Shield, Send, Instagram, Package } from 'lucide-react';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { X, Menu, ShoppingBag, Phone, ChevronDown, ChevronRight, LayoutGrid, Tag, Sparkles, Search, Info, Shield, Send, Instagram, Package } from 'lucide-react';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -10,11 +10,13 @@ import { useCategories, useSections, mapApiProduct, type Product } from '@/hooks
 import { useActiveLanguages } from '@/hooks/useLanguages';
 import { getNavLabels } from '@/lib/navLabels';
 import { apiGet } from '@/integrations/api/client';
+import { resolveContactPhone } from '@/lib/contactPhone';
 
 const CartDrawer = lazy(() => import('@/components/CartDrawer').then((m) => ({ default: m.CartDrawer })));
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLElement>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { language, setLanguage, t } = useLanguage();
@@ -41,6 +43,53 @@ export function Header() {
     window.addEventListener('open-mobile-menu', openHandler);
     return () => window.removeEventListener('open-mobile-menu', openHandler);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const menu = mobileMenuRef.current;
+    if (!menu) return;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex="0"]';
+    const visibleControls = () => Array.from(menu.querySelectorAll<HTMLElement>(focusableSelector))
+      .filter((element) => element.getClientRects().length > 0);
+
+    document.body.style.overflow = 'hidden';
+    visibleControls()[0]?.focus({ preventScroll: true });
+
+    const handleMenuKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const controls = visibleControls();
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        return;
+      }
+      if (!menu.contains(document.activeElement) || (event.shiftKey && document.activeElement === first)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setIsOpen(false); };
+    window.addEventListener('keydown', handleMenuKey);
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => {
+      window.removeEventListener('keydown', handleMenuKey);
+      desktop.removeEventListener('change', closeOnDesktop);
+      document.body.style.overflow = previousOverflow;
+      if (trigger?.isConnected && trigger.getClientRects().length > 0) trigger.focus({ preventScroll: true });
+    };
+  }, [isOpen]);
 
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [mobileCatalogOpen, setMobileCatalogOpen] = useState(false);
@@ -86,7 +135,8 @@ export function Header() {
   ];
 
   const isActive = (path: string) => location.pathname === path;
-  const contactPhone = settings?.contact_phone || '';
+  const contactPhone = resolveContactPhone(settings?.contact_phone);
+  const menuLabel = language === 'ru' ? 'Меню' : 'Menyu';
   const logoUrl = settings?.logo_url;
   const brandName = settings?.site_name || '';
 
@@ -102,9 +152,9 @@ export function Header() {
     >
 
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group max-w-[45%] sm:max-w-[200px] xl:max-w-none shrink-0">
             {logoUrl ? (
               <img
                 src={logoUrl}
@@ -113,7 +163,7 @@ export function Header() {
                 height={40}
                 fetchpriority="high"
                 decoding="async"
-                className="h-8 md:h-10 w-auto object-contain"
+                className="h-8 md:h-10 w-auto max-w-full object-contain"
               />
             ) : (
               <span className="text-lg md:text-xl font-serif font-bold tracking-wide text-foreground">
@@ -123,7 +173,7 @@ export function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-10">
+          <nav className="hidden lg:flex items-center gap-5 xl:gap-8">
             {navLinks.map((link) => {
               if (link.href === '/catalog') {
                 return (
@@ -163,7 +213,7 @@ export function Header() {
           </nav>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-3 md:gap-5">
+          <div className="flex items-center gap-2 md:gap-3 xl:gap-5 shrink-0">
             {/* Language */}
             <div className="flex items-center border border-border rounded-sm overflow-hidden">
               {(catalogLanguages.length > 0 ? catalogLanguages : [{ code: 'uz' }, { code: 'ru' }]).map((l) => (
@@ -181,11 +231,11 @@ export function Header() {
 
             {/* Phone - desktop */}
             <a 
-              href={`tel:${contactPhone.replace(/\s/g, '')}`} 
-              className="hidden xl:flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+              href={contactPhone.href}
+              className="hidden xl:flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
             >
               <Phone className="w-4 h-4" />
-              <span>{contactPhone}</span>
+              <span>{contactPhone.display}</span>
             </a>
 
             {/* CTA Button - desktop */}
@@ -193,8 +243,21 @@ export function Header() {
               <Link to="/contact">{navLabels.cta}</Link>
             </Button>
 
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="lg:hidden w-11 h-11 text-foreground hover:text-primary"
+              aria-label={menuLabel}
+              aria-expanded={isOpen}
+              aria-controls="mobile-site-menu"
+              onClick={() => setIsOpen((open) => !open)}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+
             {/* Cart */}
-            <button onClick={() => setCartOpen(prev => !prev)} className="relative hidden lg:block">
+            <button onClick={() => setCartOpen(prev => !prev)} aria-label={t.nav.cart} className="relative hidden lg:block">
               <Button variant="ghost" size="icon" className="relative text-foreground hover:text-primary" asChild>
                 <span>
                   <ShoppingBag className="w-5 h-5" />
@@ -208,12 +271,22 @@ export function Header() {
             </button>
           </div>
         </div>
+
+        <div className="flex items-center justify-between gap-3 pt-2 xl:hidden">
+          <a href={contactPhone.href} className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors whitespace-nowrap">
+            <Phone className="w-4 h-4" />
+            <span>{contactPhone.display}</span>
+          </a>
+          <Link to="/contact" className="md:hidden inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+            {navLabels.contact}
+          </Link>
+        </div>
       </div>
 
 
 
       {/* Mobile Drawer - left slide-in */}
-      {createPortal(
+      {isOpen && createPortal(
         <>
           {/* Backdrop */}
           <div
@@ -224,6 +297,11 @@ export function Header() {
           />
           {/* Drawer */}
           <aside
+            id="mobile-site-menu"
+            ref={mobileMenuRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-site-menu-title"
             className={`fixed top-3 bottom-3 left-3 w-[84%] max-w-[340px] bg-background rounded-3xl border border-border/60 overflow-hidden z-[90] lg:hidden shadow-soft-xl flex flex-col transition-transform duration-300 ease-luxe ${
               isOpen ? 'translate-x-0' : '-translate-x-[110%]'
             }`}
@@ -231,13 +309,13 @@ export function Header() {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
-              <h2 className="text-base font-semibold text-foreground">
+              <h2 id="mobile-site-menu-title" className="text-base font-semibold text-foreground">
                 {language === 'ru' ? 'Меню' : 'Menyu'}
               </h2>
               <button
                 onClick={() => setIsOpen(false)}
                 className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground"
-                aria-label="close"
+                aria-label={language === 'ru' ? 'Закрыть меню' : 'Menyuni yopish'}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -364,7 +442,7 @@ export function Header() {
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-muted transition-colors text-[14.5px] font-medium text-foreground text-left"
                 >
                   <ShoppingBag className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.75} />
-                  <span className="flex-1">{language === 'ru' ? 'Корзина' : 'Savat'}</span>
+                  <span className="flex-1">{t.nav.cart}</span>
                   {totalItems > 0 && (
                     <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center">
                       {totalItems}
@@ -393,15 +471,21 @@ export function Header() {
                 <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
                   {language === 'ru' ? 'Свяжитесь с нами' : "Biz bilan bog'laning"}
                 </p>
-                {contactPhone && (
-                  <a
-                    href={`tel:${contactPhone.replace(/\s/g, '')}`}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted text-[14px] text-foreground"
-                  >
-                    <Phone className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.75} />
-                    {contactPhone}
-                  </a>
-                )}
+                <a
+                  href={contactPhone.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted text-[14px] text-foreground"
+                >
+                  <Phone className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.75} />
+                  {contactPhone.display}
+                </a>
+                <Link
+                  to="/contact"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted text-[14px] text-foreground"
+                >
+                  <Info className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.75} />
+                  {navLabels.contact}
+                </Link>
                 {settings?.social_telegram && (
                   <a
                     href={settings.social_telegram}

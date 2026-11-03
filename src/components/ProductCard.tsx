@@ -8,6 +8,8 @@ import { LazyImage } from '@/components/LazyImage';
 import { getAttributeIcon } from '@/lib/attributeIcons';
 import type { Product } from '@/hooks/useProducts';
 import { getTranslated } from '@shared/translate';
+import { getPricingCopy } from '@/lib/pricingCopy';
+import { hasFixedPrice } from '@shared/pricing';
 
 // Support both database and static data types
 interface ProductCardProps {
@@ -37,9 +39,13 @@ interface ProductCardProps {
 
 export function ProductCard({ product, eager = false, imageAspect = 'aspect-square', imageFit = 'cover', compact = false, variant = 'default', isMaterial = false }: ProductCardProps) {
   const { language, t } = useLanguage();
+  const pricingCopy = getPricingCopy(language);
   const { addItem, isInCart } = useCart();
   const [imgIndex, setImgIndex] = useState(0);
   const inCart = isInCart(product.id);
+  const selectionLabel = inCart
+    ? (language === 'ru' ? 'Выбрано' : 'Tanlangan')
+    : pricingCopy.addToSelection;
 
   // Loose union type (see ProductCardProps) doesn't declare these extra fields on its
   // second, ad-hoc-object branch — same escape hatch the original code already used for
@@ -49,14 +55,14 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
   const name = getTranslated(product.translations, language, 'name', language === 'ru' ? product.name_ru : product.name_uz);
   const formatPrice = (price: number) => price.toLocaleString('uz-UZ');
 
-  const price = product.price || 0;
+  const price = hasFixedPrice(product.price) ? product.price : 0;
   const originalPrice = 'originalPrice' in product ? product.originalPrice : product.original_price;
   const images = product.images || [];
   const productUrl = 'slug' in product && product.slug
     ? `/product/${product.slug}`
     : `/product/${product.id}`;
 
-  const hasDiscount = originalPrice && originalPrice > price;
+  const hasDiscount = price > 0 && originalPrice && originalPrice > price;
   const discountPct = hasDiscount ? Math.round((1 - price / (originalPrice as number)) * 100) : 0;
 
   // Dense/compact contexts (home page "Tanlangan mahsulotlar" grid, hero pairs carousel)
@@ -70,9 +76,8 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
     : '';
 
   const attributes: any[] = showRich && Array.isArray(anyProduct.attributes) ? anyProduct.attributes : [];
-  const specBoxes = attributes.length > 0
+  const rawSpecBoxes = attributes.length > 0
     ? attributes
-        .slice(0, 3)
         .map((a) => ({
           icon: a.icon,
           label: (language === 'ru' ? a.label_ru : a.label_uz) || a.label_uz || a.label_ru,
@@ -85,6 +90,19 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
           anyProduct.materials?.[0] ? { icon: 'layers', label: language === 'uz' ? 'Material' : 'Материал', value: anyProduct.materials[0] } : null,
         ].filter(Boolean) as { icon: string; label: string; value: string }[]
       : [];
+
+  // Repeated placeholders do not help compare designs. Keep the first generic
+  // value and every concrete specification, even when it appears later.
+  const normalizeSpecValue = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[‘’`ʻʼ]/g, "'").replace(/\s+/g, ' ');
+  const genericSpecValues = new Set([
+    "loyiha bo'yicha", 'buyurtma asosida', 'kelishiladi',
+    'по проекту', 'под заказ', 'договорная', 'по договоренности', 'по договорённости',
+  ]);
+  const specBoxes = rawSpecBoxes.filter((box, index, boxes) => {
+    const value = normalizeSpecValue(box.value);
+    return !genericSpecValues.has(value)
+      || boxes.findIndex((candidate) => normalizeSpecValue(candidate.value) === value) === index;
+  }).slice(0, 3);
 
   const handleAddToCart = (e: MouseEvent) => {
     e.preventDefault();
@@ -196,7 +214,7 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
                 type="button"
                 size="icon"
                 variant={inCart ? 'secondary' : 'default'}
-                aria-label={inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}
+                aria-label={selectionLabel}
                 className="shrink-0 w-8 h-8 rounded-full shadow-soft-sm"
                 onClick={handleAddToCart}
               >
@@ -213,17 +231,17 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
                 <ChevronRight className="w-5 h-5 shrink-0" />
               </Link>
             ) : (
-              <div className="mt-3 flex gap-2 border-t border-border/60 pt-3">
+              <div className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3">
                 <Button
                   variant={inCart ? 'secondary' : 'default'}
-                  aria-label={inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}
-                  className="flex-[3] min-w-0 gap-1.5 rounded-full shadow-soft-sm hover:shadow-soft-md transition-all duration-300 h-11"
+                  aria-label={selectionLabel}
+                  className="w-full min-w-0 gap-1.5 rounded-full shadow-soft-sm hover:shadow-soft-md transition-all duration-300 min-h-11 h-auto py-2 whitespace-normal"
                   onClick={handleAddToCart}
                 >
                   {inCart ? <Check className="w-4 h-4 shrink-0" /> : <ShoppingCart className="w-4 h-4 shrink-0" />}
-                  <span className="truncate">{inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}</span>
+                  <span>{selectionLabel}</span>
                 </Button>
-                <Button variant="outline" asChild className="flex-[2] min-w-0 gap-1 rounded-full h-11">
+                <Button variant="outline" asChild className="w-full min-w-0 gap-1 rounded-full h-11">
                   <Link to={productUrl} className="min-w-0">
                     <span className="truncate">{language === 'uz' ? "Batafsil" : 'Подробнее'}</span>
                     <ChevronRight className="w-4 h-4 shrink-0" />
@@ -248,11 +266,11 @@ export function ProductCard({ product, eager = false, imageAspect = 'aspect-squa
 
               <Button
                 variant={inCart ? 'secondary' : 'outline'}
-                aria-label={inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}
-                className={`mt-auto w-full rounded-full shadow-soft-sm hover:shadow-soft-md transition-all duration-300 ${compact ? 'h-8 text-xs' : 'h-10'}`}
+                aria-label={selectionLabel}
+                className={`mt-auto w-full rounded-full shadow-soft-sm hover:shadow-soft-md transition-all duration-300 h-auto py-2 whitespace-normal ${compact ? 'min-h-8 text-xs' : 'min-h-10'}`}
                 onClick={handleAddToCart}
               >
-                {inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : (language === 'uz' ? "Buyurtma berish" : 'Заказать')}
+                {selectionLabel}
               </Button>
             </>
           )}

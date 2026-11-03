@@ -7,17 +7,17 @@ import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { useFeaturedProducts, useCategories, useSections } from '@/hooks/useProducts';
 import { useActiveSets } from '@/hooks/useSets';
-import { usePromoTiles } from '@/hooks/usePromoTiles';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useSEO } from '@/hooks/useSEO';
 import { EditableText } from '@/components/EditableText';
 import { EditableImage } from '@/components/EditableImage';
 import { HeroBento } from '@/components/home/HeroBento';
-import { PromoCarousel } from '@/components/home/PromoCarousel';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { getPageSeo } from '@/lib/pageSeo';
 import { PROMO_ICONS } from '@/lib/promoIcons';
 import { DiscountBanner, FeatureStrip } from '@/components/home/HomeSections';
+import type { Language } from '@/lib/translations';
+import { getTranslated } from '@shared/translate';
 
 
 const HOME_PROMO_ICONS: Record<string, LucideIcon> = PROMO_ICONS;
@@ -59,14 +59,14 @@ function useInView(threshold = 0.15) {
 function SetSection({ set, products, language }: {
   set: ReturnType<typeof useActiveSets>['sets'][number];
   products: ReturnType<typeof useActiveSets>['productsBySet'][string];
-  language: 'uz' | 'ru';
+  language: Language;
 }) {
   const PAGE_SIZE = 4;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   if (!products.length) return null;
 
-  const title = language === 'uz' ? set.title_uz : set.title_ru;
+  const title = getTranslated(set.translations, language, 'title', language === 'ru' ? set.title_ru : set.title_uz);
   const visible = products.slice(0, visibleCount);
   const hasMore = visibleCount < products.length;
 
@@ -78,9 +78,9 @@ function SetSection({ set, products, language }: {
         </h2>
         <Link
           to={`/catalog?set=${set.id}`}
-          className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          {language === 'uz' ? 'Barchasi' : 'Все'}
+          {language !== 'ru' ? 'Barchasi' : 'Все'}
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
@@ -96,7 +96,7 @@ function SetSection({ set, products, language }: {
             className="rounded-full px-8"
             onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
           >
-            {language === 'uz' ? 'Yana' : 'Ещё'}
+            {language !== 'ru' ? 'Yana' : 'Ещё'}
           </Button>
         </div>
       )}
@@ -112,7 +112,6 @@ export default function Index() {
   const homeSeo = getPageSeo('home', language);
   useSEO({ title: homeSeo.title, description: homeSeo.description, ogTitle: homeSeo.title, ogDescription: homeSeo.description });
 
-  const sec1 = useInView();
   const sec2 = useInView();
   const sec3 = useInView();
 
@@ -122,7 +121,6 @@ export default function Index() {
   // row renders above the fold, right under the hero.
   const { categories, loading: categoriesLoading } = useCategories(true);
   const { sections } = useSections(true);
-  const { data: dbPromoTiles = [] } = usePromoTiles();
   const { sets, productsBySet, loading: setsLoading } = useActiveSets(true);
 
   // The standalone "Materiallar" section (LDSP, LMDF, laminate, etc.) is its own
@@ -241,6 +239,14 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 lg:px-8 pt-5 lg:pt-8">
+        <h1 className="font-serif text-2xl lg:text-3xl font-bold text-foreground leading-tight">
+          {language === 'ru' ? 'Мебель на заказ в Ташкенте' : 'Toshkentda buyurtma asosida mebel'}
+        </h1>
+        <p className="mt-2 text-sm lg:text-base text-muted-foreground">
+          {language === 'ru' ? 'Шкафы, кухни, мебель для офиса и спальни по вашим размерам.' : 'Shkaf, oshxona, ofis va yotoqxona mebellari — sizning o‘lchamlaringiz bo‘yicha.'}
+        </p>
+      </div>
       {/* ============ QIDIRUV PANELI (mobile only) ============ */}
       <div className="md:hidden container mx-auto px-4 pt-4 pb-1">
         <form
@@ -256,13 +262,13 @@ export default function Index() {
             <input
               name="q"
               type="text"
-              placeholder={language === 'uz' ? 'Qidirish...' : 'Поиск...'}
+              placeholder={language !== 'ru' ? 'Qidirish...' : 'Поиск...'}
               className="w-full h-11 pl-11 pr-4 rounded-full border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
             />
           </div>
           <Link
             to="/catalog"
-            aria-label={language === 'uz' ? 'Filtrlar' : 'Фильтры'}
+            aria-label={language !== 'ru' ? 'Filtrlar' : 'Фильтры'}
             className="shrink-0 w-11 h-11 rounded-full border border-border bg-card flex items-center justify-center"
           >
             <SlidersHorizontal className="w-4 h-4 text-foreground" />
@@ -270,15 +276,12 @@ export default function Index() {
         </form>
       </div>
 
-      {/* ============ HERO (to'plamlar bento) ============ */}
-      <HeroBento sets={sets as any} loading={setsLoading} language={language} />
-
       {/* ============ TOIFA IKONKALARI (mobile only) ============ */}
       {mobileCats.length > 0 && (
-        <div className="md:hidden container mx-auto px-4 pt-5 pb-1">
+        <div className="lg:hidden container mx-auto px-4 pt-5 pb-1">
           <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
             {mobileCats.slice(0, 8).map((cat) => {
-              const name = language === 'uz' ? cat.name_uz : cat.name_ru;
+              const name = getTranslated(cat.translations, language, 'name', language === 'ru' ? cat.name_ru : cat.name_uz);
               const Icon = resolveCategoryIcon(name, cat.slug);
               return (
                 <Link
@@ -299,18 +302,17 @@ export default function Index() {
         </div>
       )}
 
+      {/* The full direction list stays visible before the mobile hero carousel. */}
+      <HeroBento sets={sets} loading={setsLoading} language={language} />
 
-      {/* ============ PROMO TILES (DB-driven karusel) ============ */}
-      <div ref={sec1.ref}>
-        <PromoCarousel tiles={dbPromoTiles} language={language} />
-      </div>
+
 
 
       <section ref={sec2.ref} className="container mx-auto px-4 lg:px-8 mt-16 lg:mt-24">
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="font-serif text-4xl lg:text-5xl font-bold text-foreground tracking-tight">
-              {language === 'uz' ? 'Toifalar' : 'Категория'}
+              {language !== 'ru' ? 'Toifalar' : 'Категория'}
               
             </h2>
           </div>
@@ -357,7 +359,7 @@ export default function Index() {
             }}
           >
             {catsLooped.map((cat: any, i) => {
-              const name = language === 'uz' ? cat.name_uz : cat.name_ru;
+              const name = getTranslated(cat.translations, language, 'name', language === 'ru' ? cat.name_ru : cat.name_uz);
               const img = cat.image;
               const FallbackIcon = cat.icon;
               return (
@@ -456,11 +458,11 @@ export default function Index() {
         <section className="container mx-auto px-4 lg:px-8 mt-16 lg:mt-24 pb-16 lg:pb-24">
           <div className="flex items-end justify-between mb-8">
             <h2 className="font-serif text-4xl lg:text-5xl font-bold text-foreground tracking-tight">
-              {language === 'uz' ? 'Tanlangan' : 'Избранное'}
+              {language !== 'ru' ? 'Tanlangan' : 'Избранное'}
             </h2>
             <Button asChild variant="ghost" className="rounded-full text-sm gap-2">
               <Link to="/catalog">
-                {language === 'uz' ? "Hammasi" : 'Все'} <ArrowRight className="w-4 h-4" />
+                {language !== 'ru' ? "Hammasi" : 'Все'} <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
           </div>

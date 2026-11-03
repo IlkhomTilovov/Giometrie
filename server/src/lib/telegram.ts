@@ -1,5 +1,6 @@
 import { getSettings } from './settingsStore';
 import { ApiError } from './ApiError';
+import { formatOrderItemPrice, formatOrderTotal } from './orderPricing';
 
 export interface TelegramOrderData {
   order_number: string;
@@ -7,10 +8,12 @@ export interface TelegramOrderData {
   customer_phone: string;
   customer_message?: string;
   total_price: number;
+  price_on_request?: boolean;
   items: Array<{
     product_name: string;
     quantity: number;
     price: number;
+    price_on_request?: boolean;
     selected_options?: { size?: string; color?: string };
   }>;
 }
@@ -69,7 +72,7 @@ function formatOrderMessage(orderData: TelegramOrderData): string {
         if (item.selected_options.color) options.push(`Rang: ${item.selected_options.color}`);
         line += ` (${options.join(', ')})`;
       }
-      line += ` - ${new Intl.NumberFormat('uz-UZ').format(item.price * item.quantity)} so'm`;
+      line += ` - ${formatOrderItemPrice(item, 'uz-UZ')}`;
       return line;
     })
     .join('\n');
@@ -84,7 +87,7 @@ function formatOrderMessage(orderData: TelegramOrderData): string {
 *Mahsulotlar:*
 ${itemsList}
 
-💰 *Jami:* ${new Intl.NumberFormat('uz-UZ').format(orderData.total_price)} so'm
+💰 *Jami:* ${formatOrderTotal(orderData, 'uz-UZ')}
 ${orderData.customer_message ? `\n💬 *Xabar:* ${orderData.customer_message}` : ''}
   `.trim();
 }

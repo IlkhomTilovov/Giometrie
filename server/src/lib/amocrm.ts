@@ -1,5 +1,6 @@
 import { getSettings, setSettings, setSetting } from './settingsStore';
 import { ApiError } from './ApiError';
+import { formatOrderItemPrice, formatOrderTotal } from './orderPricing';
 
 export interface AmoOrderData {
   order_number: string;
@@ -7,10 +8,12 @@ export interface AmoOrderData {
   customer_phone: string;
   customer_message?: string;
   total_price: number;
+  price_on_request?: boolean;
   items: Array<{
     product_name: string;
     quantity: number;
     price: number;
+    price_on_request?: boolean;
     selected_options?: { size?: string; color?: string };
   }>;
 }
@@ -87,7 +90,7 @@ function formatOrderNote(orderData: AmoOrderData): string {
         if (item.selected_options.color) options.push(`Rang: ${item.selected_options.color}`);
         line += ` (${options.join(', ')})`;
       }
-      line += ` - ${new Intl.NumberFormat('ru-RU').format(item.price * item.quantity)} so'm`;
+      line += ` - ${formatOrderItemPrice(item, 'ru-RU')}`;
       return line;
     })
     .join('\n');
@@ -96,7 +99,7 @@ function formatOrderNote(orderData: AmoOrderData): string {
     `Buyurtma: ${orderData.order_number}`,
     `Mahsulotlar:`,
     itemsList,
-    `Jami: ${new Intl.NumberFormat('ru-RU').format(orderData.total_price)} so'm`,
+    `Jami: ${formatOrderTotal(orderData, 'ru-RU')}`,
     orderData.customer_message ? `Xabar: ${orderData.customer_message}` : '',
   ]
     .filter(Boolean)

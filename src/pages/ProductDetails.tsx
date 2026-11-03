@@ -15,6 +15,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { getAttributeIcon } from '@/lib/attributeIcons';
 import { getTranslated } from '@shared/translate';
+import { hasFixedPrice } from '@shared/pricing';
+import { getPricingCopy } from '@/lib/pricingCopy';
 
 interface MediaItem {
   type: 'image' | 'video';
@@ -27,10 +29,11 @@ export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { language, t } = useLanguage();
+  const pricingCopy = getPricingCopy(language);
   const { addItem, isInCart } = useCart();
   const { isAdmin } = useAuth();
   const { settings } = useSystemSettings();
-  const contactPhone = settings?.contact_phone || '';
+  const contactPhone = settings?.contact_phone?.trim() || '+998 92 024 86 36';
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
@@ -86,15 +89,6 @@ export default function ProductDetails() {
       sku: product.id,
       url: window.location.href,
       brand: { '@type': 'Brand', name: 'Giometrie' },
-      offers: {
-        '@type': 'Offer',
-        price: product.price || 0,
-        priceCurrency: 'UZS',
-        availability: product.in_stock
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/OutOfStock',
-        url: window.location.href,
-      },
     };
 
     let script = document.querySelector('script[data-product-jsonld]') as HTMLScriptElement | null;
@@ -181,9 +175,11 @@ export default function ProductDetails() {
   }
 
   // Get localized content with fallback
-  const name = getTranslated(product.translations, language, 'name', product.name_uz || product.name_ru);
-  const description = getTranslated(product.translations, language, 'description', product.description_uz || product.description_ru || '');
-  const fullDescription = getTranslated(product.translations, language, 'fullDescription', product.full_description_uz || product.full_description_ru || '');
+  const name = productName || product.name_uz || product.name_ru;
+  const description = productDesc;
+  const fullDescription = getTranslated(product.translations, language, 'fullDescription',
+    (language === 'ru' ? product.full_description_ru : product.full_description_uz)
+      || product.full_description_uz || product.full_description_ru || '');
   
   // H1 uses target keyword if available, otherwise product name
   const h1Text = targetKeyword || name;
@@ -203,7 +199,7 @@ export default function ProductDetails() {
   const images = galleryImages;
   const sizes = (language === 'ru' && (product as any).sizes_ru?.length ? (product as any).sizes_ru : product.sizes) || [];
   const colors = (language === 'ru' && (product as any).colors_ru?.length ? (product as any).colors_ru : product.colors) || [];
-  const hasDiscount = !!(product.original_price && product.original_price > (product.price || 0));
+  const hasDiscount = hasFixedPrice(product.price) && !!(product.original_price && product.original_price > product.price);
   const discountPct = hasDiscount ? Math.round((1 - (product.price || 0) / (product.original_price as number)) * 100) : 0;
   const price = product.price || 0;
 
@@ -231,7 +227,7 @@ export default function ProductDetails() {
   })();
 
   const whatsappMessage = encodeURIComponent(
-    `Assalomu alaykum! Men "${name}" mahsulotiga qiziqyapman.\n\nNarxi: ${formatPrice(price)} so'm\n\nBatafsil ma'lumot berishingizni so'rayman.`
+    `Assalomu alaykum! Men "${name}" mahsulotiga qiziqyapman.\n\nNarxi: ${hasFixedPrice(product.price) ? `${formatPrice(price)} so'm` : pricingCopy.priceOnRequest}\n\nBatafsil ma'lumot berishingizni so'rayman.`
   );
 
   return (
@@ -320,13 +316,9 @@ export default function ProductDetails() {
 
           {/* Info */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              {product.in_stock ? (
-                <span className="text-sm text-success font-medium">{t.products.inStock}</span>
-              ) : (
-                <span className="text-sm text-destructive font-medium">{t.products.outOfStock}</span>
-              )}
-            </div>
+            {!isMaterialProduct && <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm text-success font-medium">{language === 'ru' ? 'Изготовим на заказ' : 'Buyurtma asosida tayyorlanadi'}</span>
+            </div>}
 
             <h1 className="font-serif text-3xl font-bold mb-4">{displayH1}</h1>
             {targetKeyword && targetKeyword !== name && <p className="text-lg text-muted-foreground mb-2">{name}</p>}
@@ -348,6 +340,13 @@ export default function ProductDetails() {
                     −{discountPct}%
                   </span>
                 )}
+              </div>
+            )}
+
+            {!isMaterialProduct && (
+              <div className="mb-6 rounded-xl bg-muted/50 p-4">
+                <p className="font-semibold">{pricingCopy.priceOnRequest}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{pricingCopy.explanation}</p>
               </div>
             )}
 
@@ -464,17 +463,18 @@ export default function ProductDetails() {
                     size="lg"
                     className="w-full gap-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                     onClick={() => addItem(product as any, 1, selectedSize, selectedColor)}
-                    disabled={inCart || !product.in_stock}
+                    disabled={inCart}
                   >
                     {inCart ? <Check className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
-                    {inCart ? (language === 'uz' ? 'Savatda' : 'В корзине') : t.products.addToCart}
+                    {inCart ? (language === 'ru' ? 'Выбрано' : 'Tanlangan') : pricingCopy.addToSelection}
                   </Button>
                 </div>
 
                 {contactPhone && (
-                  <Button asChild variant="ghost" className="w-full gap-2 mb-4">
-                    <a href={`tel:${contactPhone.replace(/\s/g, '')}`}>
-                      <Phone className="w-4 h-4" /> {t.products.requestConsultation}
+                  <Button asChild variant="ghost" className="w-full gap-2 mb-4 h-auto py-2 whitespace-normal">
+                    <a href={`tel:${contactPhone.replace(/[^\d+]/g, '')}`}>
+                      <Phone className="w-4 h-4" />
+                      <span>{t.products.requestConsultation}<br />{contactPhone}</span>
                     </a>
                   </Button>
                 )}

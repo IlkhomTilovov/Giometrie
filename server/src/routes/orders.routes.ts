@@ -10,6 +10,7 @@ import { ApiError } from '../lib/ApiError';
 import { nextOrderNumber } from '../lib/orderNumber';
 import { createAmoLead } from '../lib/amocrm';
 import { sendOrderNotification } from '../lib/telegram';
+import { hasFixedPrice } from '@shared/pricing';
 
 export const ordersRouter = Router();
 
@@ -61,7 +62,7 @@ ordersRouter.post(
       if (!product) throw new ApiError(404, `Mahsulot topilmadi: ${item.product_id}`);
       if (!product.isActive) throw new ApiError(400, `Mahsulot faol emas: ${product.nameUz || product.nameRu}`);
 
-      const serverPrice = product.price || 0;
+      const serverPrice = hasFixedPrice(product.price) ? product.price : 0;
       totalPrice += serverPrice * item.quantity;
 
       orderItemsData.push({
@@ -108,8 +109,10 @@ ordersRouter.post(
       product_name: i.productNameSnapshot,
       quantity: i.quantity,
       price: i.priceSnapshot,
+      price_on_request: true,
       selected_options: i.selectedOptions as { size?: string; color?: string } | undefined,
     }));
+    const priceOnRequest = true;
 
     createAmoLead('order', {
       order_number: order.orderNumber,
@@ -117,6 +120,7 @@ ordersRouter.post(
       customer_phone: order.customerPhone,
       customer_message: order.customerMessage ?? undefined,
       total_price: totalPrice,
+      price_on_request: priceOnRequest,
       items: notificationItems,
     }).catch((err) => console.error('AmoCRM lead creation failed (non-blocking):', err));
 
@@ -126,10 +130,11 @@ ordersRouter.post(
       customer_phone: order.customerPhone,
       customer_message: order.customerMessage ?? undefined,
       total_price: totalPrice,
+      price_on_request: priceOnRequest,
       items: notificationItems,
     }).catch((err) => console.error('Telegram notification failed (non-blocking):', err));
 
-    res.json({ success: true, order_number: order.orderNumber, total_price: totalPrice });
+    res.json({ success: true, order_number: order.orderNumber, total_price: totalPrice, price_on_request: priceOnRequest });
   })
 );
 
@@ -199,10 +204,12 @@ ordersRouter.post(
       customer_phone: order.customerPhone,
       customer_message: label ? `${label}${order.customerMessage ? ` — ${order.customerMessage}` : ''}` : order.customerMessage ?? undefined,
       total_price: order.totalPrice ?? 0,
+      price_on_request: true,
       items: order.items.map((i) => ({
         product_name: i.productNameSnapshot,
         quantity: i.quantity,
         price: i.priceSnapshot ?? 0,
+        price_on_request: true,
         selected_options: (i.selectedOptions as { size?: string; color?: string } | null) ?? undefined,
       })),
     });
