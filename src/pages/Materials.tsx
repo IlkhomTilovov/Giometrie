@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { FurnitureCard } from '@/components/FurnitureCard';
@@ -134,7 +134,13 @@ export default function Materials() {
       {/* Masthead */}
       <div className="text-center py-6 lg:py-8 mb-10 lg:mb-14">
         <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground mb-2">
-          <Package className="w-3.5 h-3.5" />
+          <svg viewBox="0 0 313 296" className="w-3.5 h-3.5" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M185.486 175.056L143.628 235.443C143.272 235.955 142.539 236.021 142.098 235.579L84.0286 177.428C83.3989 176.797 82.321 177.243 82.321 178.135V279.9C82.321 280.453 81.8733 280.9 81.321 280.9H16C15.4477 280.9 15 280.453 15 279.9V16.0322C15 15.1545 16.0499 14.7026 16.6874 15.3059L185.486 175.056ZM185.486 175.056L295.504 16.3373C296.062 15.5318 297.325 15.9269 297.325 16.907V278.577C297.325 279.455 296.276 279.907 295.638 279.304L185.486 175.056Z"
+              stroke="#A47D52"
+              strokeWidth="30"
+            />
+          </svg>
           <EditableText
             contentKey="materials_eyebrow"
             fallback="Giometrie"
