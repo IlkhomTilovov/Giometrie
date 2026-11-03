@@ -13,7 +13,7 @@ export const translations = {
       about: "Biz xaqimizda",
       contact: "Aloqa",
       faq: "FAQ",
-      cart: "Savat",
+      cart: "Tanlanganlar",
       admin: "Admin",
     },
     // Hero
@@ -155,10 +155,10 @@ export const translations = {
     },
     // Cart
     cart: {
-      title: "Savatingiz",
-      empty: "Savat bo'sh",
-      emptyDesc: "Mahsulotlarni qo'shing va bu yerda ko'ring",
-      continueShopping: "Xarid qilishni davom ettirish",
+      title: "Tanlangan namunalar",
+      empty: "Hali namuna tanlanmagan",
+      emptyDesc: "Hisob-kitob uchun katalogdan sizga mos namunalarni tanlang",
+      continueShopping: "Namunalarni ko‘rish",
       total: "Jami",
       sendWhatsApp: "WhatsApp orqali yuborish",
       quantity: "Miqdor",
@@ -187,7 +187,7 @@ export const translations = {
       about: "О нас",
       contact: "Контакты",
       faq: "FAQ",
-      cart: "Корзина",
+      cart: "Выбранное",
       admin: "Админ",
     },
     // Hero
@@ -329,10 +329,10 @@ export const translations = {
     },
     // Cart
     cart: {
-      title: "Ваша корзина",
-      empty: "Корзина пуста",
-      emptyDesc: "Добавьте товары и увидите их здесь",
-      continueShopping: "Продолжить покупки",
+      title: "Выбранные образцы",
+      empty: "Образцы пока не выбраны",
+      emptyDesc: "Выберите подходящие образцы в каталоге для расчёта",
+      continueShopping: "Смотреть образцы",
       total: "Итого",
       sendWhatsApp: "Отправить через WhatsApp",
       quantity: "Количество",

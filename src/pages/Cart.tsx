@@ -5,11 +5,15 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/hooks/useLanguage';
 import { OrderForm } from '@/components/OrderForm';
+import { OrderPricingNote } from '@/components/OrderPricingNote';
+import { getPricingCopy } from '@/lib/pricingCopy';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 export default function Cart() {
   const [orderFormOpen, setOrderFormOpen] = useState(false);
-  const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, totalPrice, requiresQuote } = useCart();
   const { language, t } = useLanguage();
+  const pricingCopy = getPricingCopy(language);
 
   const formatPrice = (price: number) => price.toLocaleString('uz-UZ');
 
@@ -45,7 +49,7 @@ export default function Cart() {
               return (
                 <div key={item.product.id} className="flex gap-3 md:gap-4 p-3 md:p-4 bg-card rounded-xl md:rounded-2xl shadow-warm">
                   <Link to={`/product/${item.product.id}`} className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-lg overflow-hidden">
-                    <img src={item.product.images[0]} alt={name} width={96} height={96} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(item.product.images?.[0] || '/placeholder.svg')} alt={name} width={96} height={96} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </Link>
                   <div className="flex-1 min-w-0">
                     <Link to={`/product/${item.product.id}`} className="font-medium text-sm md:text-base hover:text-primary transition-colors line-clamp-2">
@@ -110,14 +114,15 @@ export default function Cart() {
               <h3 className="font-serif text-lg md:text-xl font-bold mb-3 md:mb-4">{t.cart.total}</h3>
               
               <div className="space-y-2 md:space-y-3 mb-4 md:mb-6">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">{items.length} {t.catalog.products}</span>
-                  <span>{formatPrice(totalPrice)} {t.products.currency}</span>
+                  <span className="text-right">{requiresQuote ? pricingCopy.priceOnRequest : `${formatPrice(totalPrice)} ${t.products.currency}`}</span>
                 </div>
                 <div className="border-t pt-2 md:pt-3 flex justify-between font-medium text-base md:text-lg">
                   <span>{t.cart.total}</span>
-                  <span className="font-serif font-bold">{formatPrice(totalPrice)} {t.products.currency}</span>
+                  <span className="font-serif font-bold text-right">{requiresQuote ? pricingCopy.priceOnRequest : `${formatPrice(totalPrice)} ${t.products.currency}`}</span>
                 </div>
+                <OrderPricingNote requiresQuote={requiresQuote} totalPrice={totalPrice} language={language} currency={t.products.currency} />
               </div>
 
               <div className="space-y-2 md:space-y-3">
@@ -126,7 +131,7 @@ export default function Cart() {
                   className="w-full gap-2 rounded-lg md:rounded-full h-11 md:h-12"
                   onClick={() => setOrderFormOpen(true)}
                 >
-                  <Send className="w-4 h-4 md:w-5 md:h-5" /> {language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ'}
+                  <Send className="w-4 h-4 md:w-5 md:h-5" /> {requiresQuote ? pricingCopy.requestQuote : (language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ')}
                 </Button>
 
 

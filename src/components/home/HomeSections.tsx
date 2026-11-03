@@ -6,7 +6,7 @@ import { LazyImage } from '@/components/LazyImage';
 import { Button } from '@/components/ui/button';
 import { getTranslated } from '@shared/translate';
 
-type Lang = 'uz' | 'ru';
+type Lang = string;
 
 interface CategoryLike {
   id: string;

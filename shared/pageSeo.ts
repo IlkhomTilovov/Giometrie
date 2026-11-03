@@ -89,6 +89,6 @@ const SEO: Record<PageKey, Record<Lang, PageSeo>> = {
   },
 };
 
-export function getPageSeo(page: PageKey, language: Lang): PageSeo {
-  return SEO[page][language] || SEO[page].uz;
+export function getPageSeo(page: PageKey, language: string): PageSeo {
+  return SEO[page][language === 'ru' ? 'ru' : 'uz'];
 }

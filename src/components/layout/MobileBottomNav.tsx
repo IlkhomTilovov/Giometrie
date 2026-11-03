@@ -19,7 +19,7 @@ type NavItem = {
 const items: NavItem[] = [
   { to: '/', icon: Home, label: { uz: 'Asosiy', ru: 'Главная' } },
   { to: '/catalog', icon: LayoutGrid, label: { uz: 'Katalog', ru: 'Каталог' } },
-  { to: '/cart', icon: ShoppingBag, label: { uz: 'Savat', ru: 'Корзина' }, isCart: true },
+  { to: '/cart', icon: ShoppingBag, label: { uz: 'Tanlanganlar', ru: 'Выбранное' }, isCart: true },
   { icon: Phone, label: { uz: "Qo'ng'iroq", ru: 'Позвонить' }, action: 'call' },
   { icon: Menu, label: { uz: 'Menyu', ru: 'Меню' }, action: 'open-menu' },
 ];

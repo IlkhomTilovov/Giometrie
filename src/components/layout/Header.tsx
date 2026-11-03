@@ -257,7 +257,7 @@ export function Header() {
             </Button>
 
             {/* Cart */}
-            <button onClick={() => setCartOpen(prev => !prev)} className="relative hidden lg:block">
+            <button onClick={() => setCartOpen(prev => !prev)} aria-label={t.nav.cart} className="relative hidden lg:block">
               <Button variant="ghost" size="icon" className="relative text-foreground hover:text-primary" asChild>
                 <span>
                   <ShoppingBag className="w-5 h-5" />
@@ -442,7 +442,7 @@ export function Header() {
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-muted transition-colors text-[14.5px] font-medium text-foreground text-left"
                 >
                   <ShoppingBag className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.75} />
-                  <span className="flex-1">{language === 'ru' ? 'Корзина' : 'Savat'}</span>
+                  <span className="flex-1">{t.nav.cart}</span>
                   {totalItems > 0 && (
                     <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center">
                       {totalItems}

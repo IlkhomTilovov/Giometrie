@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { asyncHandler } from '../middleware/errorHandler';
 import { faqs } from '@shared/faqData';
 import { getPageSeo } from '@shared/pageSeo';
+import { hasFixedPrice } from '@shared/pricing';
 
 export const prerenderRouter = Router();
 
@@ -115,19 +116,13 @@ prerenderRouter.get(
           sku: product.id,
           url: `${siteUrl}${subPath}`,
           brand: { '@type': 'Brand', name: siteName },
-          offers: {
-            '@type': 'Offer',
-            price: product.price || 0,
-            priceCurrency: 'UZS',
-            availability: product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-            url: `${siteUrl}${subPath}`,
-          },
         },
       ];
 
       const bodyHtml = `
 <h1>${esc(name)}</h1>
-${product.price ? `<p>Narxi: ${esc(product.price)} so'm</p>` : ''}
+${hasFixedPrice(product.price) ? `<p>Namuna uchun ma'lumot narxi: ${esc(product.price)} so'm</p>` : ''}
+<p>Narx hisob-kitobdan so'ng aniqlanadi</p>
 <div>${esc(description)}</div>
 ${imageUrls.map((src) => `<img src="${esc(src)}" alt="${esc(name)}" />`).join('\n')}
 `;
@@ -191,7 +186,7 @@ ${products
   .map(
     (p) =>
       `<li><a href="${siteUrl}/product/${esc(p.slug || p.id)}">${esc(p.nameUz)}</a>${
-        p.price ? ` — ${esc(p.price)} so'm` : ''
+        hasFixedPrice(p.price) ? ` — ${esc(p.price)} so'm` : " — Narx hisob-kitobdan so'ng aniqlanadi"
       }</li>`
   )
   .join('\n')}

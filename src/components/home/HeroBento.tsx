@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, ShoppingCart } from 'lucide-react';
+import { ArrowUpRight, ArrowRight } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { LazyImage } from '@/components/LazyImage';
 import { getTranslated } from '@shared/translate';
-
-type Lang = 'uz' | 'ru';
+import type { Language } from '@/lib/translations';
 
 interface SetLike {
   id: string;
@@ -35,7 +34,7 @@ export function HeroBento({
 }: {
   sets: SetLike[];
   loading: boolean;
-  language: Lang;
+  language: Language;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -92,23 +91,23 @@ export function HeroBento({
       <div className="relative h-full p-6 lg:p-12 flex flex-col justify-between">
         <div>
           <span className="text-[10px] lg:text-xs font-semibold uppercase tracking-[0.24em] text-background/60">
-            {language === 'uz' ? "To'plamlar" : 'Комплекты'}
+            {language !== 'ru' ? 'Buyurtma asosida' : 'На заказ'}
           </span>
-          <h1 className="mt-4 font-serif text-3xl sm:text-4xl lg:text-6xl font-bold leading-[1.05] text-background max-w-[16ch]">
+          <h2 className="mt-4 font-serif text-3xl sm:text-4xl lg:text-6xl font-bold leading-[1.05] text-background max-w-[16ch]">
             {mainTitle}
-          </h1>
+          </h2>
           <p className="mt-3 text-sm lg:text-base text-background/70 max-w-[30ch]">
-            {language === 'uz'
-              ? "Bepul yetkazib berish va 24 oygacha kafolat bilan"
-              : 'С бесплатной доставкой и гарантией до 24 месяцев'}
+            {language !== 'ru'
+              ? 'Xonangiz o‘lchami va tanlagan materiallaringizga moslab tayyorlaymiz.'
+              : 'Изготовим по размерам вашего помещения из выбранных материалов.'}
           </p>
         </div>
         <div className="inline-flex items-center gap-8 self-start bg-background/95 rounded-full pl-6 pr-2 py-2">
           <span className="text-xs lg:text-sm font-medium text-foreground whitespace-nowrap">
-            {language === 'uz' ? "To'plamni ko'rish" : 'Смотреть комплект'}
+            {language !== 'ru' ? 'Namunalarni ko‘rish' : 'Смотреть образцы'}
           </span>
           <span className="w-9 h-9 shrink-0 rounded-full bg-primary flex items-center justify-center">
-            <ShoppingCart className="w-4 h-4 text-primary-foreground" />
+            <ArrowRight className="w-4 h-4 text-primary-foreground" />
           </span>
         </div>
       </div>
@@ -134,13 +133,21 @@ export function HeroBento({
       </div>
       {sets.length > 1 && (
         <div className="lg:hidden flex justify-center gap-1.5 mt-3">
-          {sets.map((_, i) => (
+          {sets.map((set, i) => (
+            <button
+              key={set.id}
+              type="button"
+              aria-label={getTranslated(set.translations, language, 'title', language === 'ru' ? set.title_ru : set.title_uz)}
+              aria-current={i === activeSlide ? 'true' : undefined}
+              onClick={() => scrollerRef.current?.scrollTo({ left: i * scrollerRef.current.clientWidth, behavior: 'smooth' })}
+              className="min-w-6 min-h-6 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            >
             <span
-              key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 i === activeSlide ? 'w-6 bg-foreground' : 'w-1.5 bg-foreground/25'
               }`}
             />
+            </button>
           ))}
         </div>
       )}
@@ -176,7 +183,7 @@ function SetTile({
   priority = false,
 }: {
   set: SetLike;
-  language: Lang;
+  language: Language;
   tint: string;
   wide?: boolean;
   heightClass?: string;
@@ -205,7 +212,7 @@ function SetTile({
       <div className="relative h-full p-5 lg:p-7 flex flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-media-foreground/70">
-            {language === 'uz' ? 'Tayyor to‘plam' : 'Готовый комплект'}
+            {language !== 'ru' ? 'Buyurtma asosida' : 'На заказ'}
           </span>
           <ArrowUpRight className="w-4 h-4 shrink-0 text-media-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </div>

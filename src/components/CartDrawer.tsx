@@ -6,6 +6,10 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { cn } from '@/lib/utils';
+import { OrderPricingNote } from '@/components/OrderPricingNote';
+import { getPricingCopy } from '@/lib/pricingCopy';
+import { hasFixedPrice } from '@shared/pricing';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -13,8 +17,9 @@ interface CartDrawerProps {
 }
 
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
+  const { items, removeItem, updateQuantity, totalPrice, totalItems, requiresQuote } = useCart();
   const { language, t } = useLanguage();
+  const pricingCopy = getPricingCopy(language);
   const { settings } = useSystemSettings();
 
   // Lock body scroll when open, restore when closed
@@ -59,10 +64,13 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const buildTelegramMessage = () => {
     const itemsList = items.map(item => {
       const name = getProductName(item.product);
-      return `• ${name} x${item.quantity} = ${formatPrice((item.product.price || 0) * item.quantity)} so'm`;
+      const itemPrice = hasFixedPrice(item.product.price)
+        ? `${formatPrice(item.product.price * item.quantity)} ${t.products.currency}`
+        : pricingCopy.priceOnRequest;
+      return `• ${name} x${item.quantity} = ${itemPrice}`;
     }).join('\n');
     
-    const message = `🛒 Yangi buyurtma:\n\n${itemsList}\n\n💰 Jami: ${formatPrice(totalPrice)} so'm`;
+    const message = `🛒 ${requiresQuote ? pricingCopy.requestTitle : (language === 'ru' ? 'Новый заказ' : 'Yangi buyurtma')}:\n\n${itemsList}\n\n${requiresQuote ? pricingCopy.explanation : `${t.cart.total}: ${formatPrice(totalPrice)} ${t.products.currency}`}`;
     return encodeURIComponent(message);
   };
 
@@ -103,17 +111,17 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             </div>
             <div>
               <h2 className="font-serif font-bold text-xl">
-                {language === 'uz' ? 'Savatcha' : 'Корзина'}
+                {t.cart.title}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {totalItems} {language === 'uz' ? 'ta mahsulot' : 'товаров'}
+                {totalItems} {language === 'ru' ? 'образцов' : 'ta namuna'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="w-10 h-10 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 transition-colors"
-            aria-label="Close cart"
+            aria-label={language === 'ru' ? 'Закрыть выбранные образцы' : 'Tanlangan namunalarni yopish'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -127,12 +135,10 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 <ShoppingBag className="w-8 h-8 text-muted-foreground/40" />
               </div>
               <h3 className="font-serif font-bold text-lg mb-2">
-                {language === 'uz' ? 'Savatcha bo\'sh' : 'Корзина пуста'}
+                {t.cart.empty}
               </h3>
               <p className="text-muted-foreground text-sm mb-6 max-w-[200px]">
-                {language === 'uz' 
-                  ? 'Mahsulotlarni katalogdan tanlang' 
-                  : 'Выберите товары из каталога'}
+                {t.cart.emptyDesc}
               </p>
               <Button asChild className="rounded-full px-6" onClick={onClose}>
                 <Link to="/catalog">
@@ -145,7 +151,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               {items.map((item) => {
                 const name = getProductName(item.product);
                 const price = item.product.price || 0;
-                const image = item.product.images?.[0] || '/placeholder.svg';
+                const image = resolveMediaUrl(item.product.images?.[0] || '/placeholder.svg');
                 
                 return (
                   <div
@@ -238,15 +244,15 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         {items.length > 0 && (
           <div className="flex-shrink-0 border-t border-border bg-card px-5 py-4 space-y-3">
             {/* Total */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground font-medium">
                 {language === 'uz' ? 'Jami' : 'Итого'}
               </span>
-              <span className="font-serif text-xl font-bold">
-                {formatPrice(totalPrice)} 
-                <span className="text-sm font-normal text-muted-foreground ml-1">{t.products.currency}</span>
+              <span className={`font-serif font-bold text-right ${requiresQuote ? 'text-base' : 'text-xl'}`}>
+                {requiresQuote ? pricingCopy.priceOnRequest : `${formatPrice(totalPrice)} ${t.products.currency}`}
               </span>
             </div>
+            <OrderPricingNote requiresQuote={requiresQuote} totalPrice={totalPrice} language={language} currency={t.products.currency} />
 
             {/* CTA Buttons */}
             <div className="flex flex-col gap-2">
@@ -257,7 +263,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 onClick={onClose}
               >
                 <Link to="/checkout">
-                  {language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ'}
+                  {requiresQuote ? pricingCopy.requestQuote : (language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ')}
                 </Link>
               </Button>
               
@@ -269,7 +275,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 onClick={onClose}
               >
                 <Link to="/cart">
-                  {language === 'uz' ? 'Savatchani ko\'rish' : 'Посмотреть корзину'}
+                  {language === 'ru' ? 'Смотреть выбранные образцы' : 'Tanlangan namunalarni ko‘rish'}
                 </Link>
               </Button>
             </div>

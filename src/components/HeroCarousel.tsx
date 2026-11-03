@@ -138,7 +138,7 @@ function SlideView({
   fallbackImage,
 }: {
   slide: HeroSlide;
-  language: 'uz' | 'ru';
+  language: string;
   isActive: boolean;
   isFirst: boolean;
   fallbackImage: string;

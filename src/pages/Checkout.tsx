@@ -11,6 +11,9 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useCheckoutFields, CheckoutField } from '@/hooks/useCheckoutFields';
 import { apiPost, ApiError } from '@/integrations/api/client';
 import { toast } from '@/hooks/use-toast';
+import { OrderPricingNote } from '@/components/OrderPricingNote';
+import { getPricingCopy } from '@/lib/pricingCopy';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 // Icon mapping for dynamic fields
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -24,8 +27,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, requiresQuote } = useCart();
   const { language, t } = useLanguage();
+  const pricingCopy = getPricingCopy(language);
   const { fields: checkoutFields, loading: fieldsLoading } = useCheckoutFields();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -100,7 +104,7 @@ export default function Checkout() {
     if (items.length === 0) {
       toast({
         title: language === 'uz' ? 'Xatolik' : 'Ошибка',
-        description: language === 'uz' ? 'Savatcha bo\'sh' : 'Корзина пуста',
+        description: t.cart.empty,
         variant: 'destructive',
       });
       return;
@@ -162,7 +166,7 @@ export default function Checkout() {
         return;
       }
 
-      const orderResult = await apiPost<{ success: boolean; order_number: string; total_price: number }>(
+      const orderResult = await apiPost<{ success: boolean; order_number: string; total_price: number; price_on_request?: boolean }>(
         '/api/orders',
         {
           customer_name: customerName,
@@ -173,7 +177,10 @@ export default function Checkout() {
       );
 
       clearCart();
-      navigate('/thank-you', { state: { orderNumber: orderResult.order_number } });
+      navigate('/thank-you', { state: {
+        orderNumber: orderResult.order_number,
+        requiresQuote: typeof orderResult.price_on_request === 'boolean' ? orderResult.price_on_request : requiresQuote,
+      } });
 
     } catch (error: any) {
       console.error('Order error:', error);
@@ -282,7 +289,7 @@ export default function Checkout() {
         <div className="text-center">
           <ShoppingBag className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-4">
-            {language === 'uz' ? 'Savatcha bo\'sh' : 'Корзина пуста'}
+            {t.cart.empty}
           </h1>
           <Button asChild>
             <Link to="/catalog">
@@ -303,13 +310,13 @@ export default function Checkout() {
         </Button>
 
         <h1 className="font-serif text-3xl font-bold mb-8">
-          {language === 'uz' ? 'Buyurtmani rasmiylashtirish' : 'Оформление заказа'}
+          {requiresQuote ? pricingCopy.requestTitle : (language === 'uz' ? 'Buyurtmani rasmiylashtirish' : 'Оформление заказа')}
         </h1>
 
         <div className="grid lg:grid-cols-5 gap-8">
           {/* Order Form */}
           <div className="lg:col-span-3">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id="checkout-form" onSubmit={handleSubmit} className="space-y-6">
               {/* Dynamic Fields */}
               {fieldsLoading ? (
                 <div className="py-4 flex justify-center">
@@ -329,7 +336,7 @@ export default function Checkout() {
                 >
                   {isSubmitting 
                     ? (language === 'uz' ? 'Yuborilmoqda...' : 'Отправка...') 
-                    : (language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ')}
+                    : (requiresQuote ? pricingCopy.requestQuote : (language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ'))}
                 </Button>
               </div>
             </form>
@@ -339,14 +346,14 @@ export default function Checkout() {
           <div className="lg:col-span-2">
             <div className="bg-muted/40 rounded-2xl p-6 sticky top-24">
               <h2 className="font-serif font-bold text-lg mb-4">
-                {language === 'uz' ? 'Buyurtma tarkibi' : 'Состав заказа'}
+                {requiresQuote ? t.cart.title : (language === 'uz' ? 'Buyurtma tarkibi' : 'Состав заказа')}
               </h2>
 
               <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto">
                 {items.map((item) => {
                   const name = getProductName(item.product);
                   const price = item.product.price || 0;
-                  const image = item.product.images?.[0] || '/placeholder.svg';
+                  const image = resolveMediaUrl(item.product.images?.[0] || '/placeholder.svg');
 
                   return (
                     <div key={item.product.id} className="flex gap-3">
@@ -382,13 +389,16 @@ export default function Checkout() {
               </div>
 
               <div className="border-t border-border pt-4">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between gap-4 mb-4">
                   <span className="font-medium">
                     {language === 'uz' ? 'Jami' : 'Итого'}:
                   </span>
-                  <span className="font-serif text-2xl font-bold">
-                    {formatPrice(totalPrice)} <span className="text-sm font-normal text-muted-foreground">{t.products.currency}</span>
+                  <span className={`font-serif font-bold text-right ${requiresQuote ? 'text-base' : 'text-2xl'}`}>
+                    {requiresQuote ? pricingCopy.priceOnRequest : `${formatPrice(totalPrice)} ${t.products.currency}`}
                   </span>
+                </div>
+                <div className="mb-6">
+                  <OrderPricingNote requiresQuote={requiresQuote} totalPrice={totalPrice} language={language} currency={t.products.currency} />
                 </div>
 
                 {/* Submit Button - Desktop */}
@@ -398,11 +408,10 @@ export default function Checkout() {
                   size="lg"
                   className="w-full rounded-full h-12 text-base font-semibold hidden lg:flex"
                   disabled={isSubmitting || fieldsLoading}
-                  onClick={handleSubmit}
                 >
                   {isSubmitting 
                     ? (language === 'uz' ? 'Yuborilmoqda...' : 'Отправка...') 
-                    : (language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ')}
+                    : (requiresQuote ? pricingCopy.requestQuote : (language === 'uz' ? 'Buyurtma berish' : 'Оформить заказ'))}
                 </Button>
               </div>
             </div>

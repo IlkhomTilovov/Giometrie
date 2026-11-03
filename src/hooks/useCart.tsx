@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product } from '@/lib/data';
+import { getCartPricing } from '@shared/pricing';
 
 export interface CartItem {
   product: Product;
@@ -16,6 +17,7 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
+  requiresQuote: boolean;
   isInCart: (productId: string) => boolean;
 }
 
@@ -64,10 +66,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = () => setItems([]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0
-  );
+  const { pricedSubtotal: totalPrice, requiresQuote } = getCartPricing(items);
 
   const isInCart = (productId: string) => items.some(item => item.product.id === productId);
 
@@ -81,6 +80,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearCart,
         totalItems,
         totalPrice,
+        requiresQuote,
         isInCart,
       }}
     >

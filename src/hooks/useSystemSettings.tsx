@@ -34,9 +34,9 @@ interface SystemSettingsContextType {
   getPrimaryDomain: () => string;
   getSEOTitle: (pageName?: string) => string;
   getSEODescription: () => string;
-  getShortDescription: (language: 'uz' | 'ru') => string;
-  getAddress: (language: 'uz' | 'ru') => string;
-  getWorkingHours: (language: 'uz' | 'ru') => string;
+  getShortDescription: (language: string) => string;
+  getAddress: (language: string) => string;
+  getWorkingHours: (language: string) => string;
 }
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | undefined>(undefined);
@@ -236,21 +236,21 @@ export function SystemSettingsProvider({ children }: { children: React.ReactNode
     return settings?.seo_description || '';
   };
 
-  const getShortDescription = (language: 'uz' | 'ru') => {
+  const getShortDescription = (language: string) => {
     if (language === 'ru') {
       return settings?.short_description_ru || settings?.short_description_uz || '';
     }
     return settings?.short_description_uz || '';
   };
 
-  const getAddress = (language: 'uz' | 'ru') => {
+  const getAddress = (language: string) => {
     if (language === 'ru') {
       return settings?.address_ru || settings?.address_uz || '';
     }
     return settings?.address_uz || '';
   };
 
-  const getWorkingHours = (language: 'uz' | 'ru') => {
+  const getWorkingHours = (language: string) => {
     if (language === 'ru') {
       return settings?.working_hours_ru || settings?.working_hours_uz || '';
     }
